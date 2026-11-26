@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireAuth, ManaraRole } from "@/infrastructure/supabase/auth";
+import {
+  requireAuth,
+  resolveOrganizationId,
+  ManaraRole,
+} from "@/infrastructure/supabase/auth";
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -89,6 +93,7 @@ export async function POST(req: NextRequest) {
     }
 
     const safeRole: ManaraRole = VALID_ROLES.includes(role) ? role : "VIEWER";
+    const orgId = await resolveOrganizationId(auth.context);
 
     const { data, error } = await adminClient.auth.admin.createUser({
       email: String(email).trim(),
@@ -102,6 +107,7 @@ export async function POST(req: NextRequest) {
       app_metadata: {
         role: safeRole,
         village: String(village || "").trim(),
+        ...(orgId ? { organization_id: orgId } : {}),
       },
     });
 
@@ -138,11 +144,13 @@ export async function PATCH(req: NextRequest) {
     }
 
     const safeRole: ManaraRole = VALID_ROLES.includes(role) ? role : "VIEWER";
+    const orgId = await resolveOrganizationId(auth.context);
 
     const { data, error } = await adminClient.auth.admin.updateUserById(userId, {
       app_metadata: {
         role: safeRole,
         village: String(village || "").trim(),
+        ...(orgId ? { organization_id: orgId } : {}),
       },
       user_metadata: {
         ...(fullName ? { full_name: String(fullName).trim() } : {}),

@@ -2,9 +2,9 @@ import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, resolveOrganizationId } from "@/infrastructure/supabase/auth";
 
-// جلب عقود الزواج المسجلة
+// جلب عقود الزواج المسجلة (محصور في الإدارة والأئمة)
 export async function GET(req: NextRequest) {
-  const auth = await requireAuth(undefined, req);
+  const auth = await requireAuth(["ADMIN", "IMAM"], req);
   if (!auth.ok) return auth.response;
 
   const { supabase, organizationId } = auth.context;

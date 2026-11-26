@@ -9,7 +9,7 @@ import {
 } from "@/lib/validation";
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAuth(undefined, req);
+  const auth = await requireAuth(["ADMIN", "ACCOUNTANT", "IMAM"], req);
   if (!auth.ok) return auth.response;
 
   const { supabase, organizationId } = auth.context;
