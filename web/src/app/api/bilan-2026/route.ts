@@ -52,6 +52,7 @@ export async function GET() {
     return NextResponse.json({
       isAdmin,
       role,
+      village: village || null,
       userEmail: user.email,
       fiches,
     });
@@ -64,14 +65,16 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const { supabase, user, role, organizationId } = auth.context;
+  const { supabase, user, role, organizationId, village } = auth.context;
   const isAdmin = role === "ADMIN";
 
   try {
     const body = await req.json();
     const { id, sectionName, faitA, ...restPayload } = body;
+    const effectiveSectionName =
+      !isAdmin && village ? village : String(sectionName || "").trim();
 
-    if (!sectionName || String(sectionName).trim().length === 0) {
+    if (!effectiveSectionName) {
       return NextResponse.json(
         { error: "اسم القرية أو الشعبة مطلوب" },
         { status: 400 }
@@ -92,7 +95,7 @@ export async function POST(req: NextRequest) {
     }
 
     const payloadJson = JSON.stringify({
-      sectionName: String(sectionName).trim(),
+      sectionName: effectiveSectionName,
       faitA: faitA || "Maradi",
       ...restPayload,
     });
@@ -119,7 +122,7 @@ export async function POST(req: NextRequest) {
         const { data: updated, error } = await supabase
           .from("bilan_fiches_2026")
           .update({
-            section_name: String(sectionName).trim(),
+            section_name: effectiveSectionName,
             fait_a: faitA || "Maradi",
             payload_json: payloadJson,
             updated_at: new Date().toISOString(),
@@ -142,7 +145,7 @@ export async function POST(req: NextRequest) {
         organization_id: orgId,
         owner_user_id: user.id,
         owner_email: user.email || null,
-        section_name: String(sectionName).trim(),
+        section_name: effectiveSectionName,
         fait_a: faitA || "Maradi",
         payload_json: payloadJson,
       })

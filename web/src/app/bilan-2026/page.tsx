@@ -456,6 +456,7 @@ export default function Bilan2026Page() {
   const [viewMode, setViewMode] = useState<"add" | "display">("add");
   const [fichesList, setFichesList] = useState<BilanFiche[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [assignedVillage, setAssignedVillage] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [requiresLogin, setRequiresLogin] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -661,7 +662,11 @@ export default function Bilan2026Page() {
         const data = await res.json();
         setRequiresLogin(false);
         setIsAdmin(Boolean(data.isAdmin));
+        setAssignedVillage(data.village || null);
         setUserEmail(data.userEmail || null);
+        if (!data.isAdmin && data.village) {
+          setSectionName(data.village);
+        }
         if (Array.isArray(data.fiches)) {
           setFichesList(data.fiches);
         }
@@ -1041,23 +1046,27 @@ export default function Bilan2026Page() {
                 <CheckCircle2 className="w-4 h-4" />
                 <span>{isSubmitting ? "..." : dict.submitToListBtn}</span>
               </button>
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={handleSaveAndNext}
-                className="px-4 py-2.5 bg-teal-700 hover:bg-teal-600 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>{dict.saveAndNextBtn}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsBatchModalOpen(true)}
-                className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>{dict.batchAddBtn}</span>
-              </button>
+              {isAdmin && (
+                <>
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={handleSaveAndNext}
+                    className="px-4 py-2.5 bg-teal-700 hover:bg-teal-600 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{dict.saveAndNextBtn}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsBatchModalOpen(true)}
+                    className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>{dict.batchAddBtn}</span>
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 onClick={handleSaveDraft}
@@ -1110,7 +1119,7 @@ export default function Bilan2026Page() {
                 <span>
                   {isAdmin
                     ? `ADMIN — وضع المشرف العام: عرض مجمّع لجميع القرى (${fichesList.length})`
-                    : `وضع القرية المعزول — تظهر بيانات قريتك فقط (${userEmail || "Village"})`}
+                    : `وضع القرية المعزول — تظهر بيانات قريتك فقط (${assignedVillage || userEmail || "Village"})`}
                 </span>
               </div>
             </div>
@@ -1152,16 +1161,18 @@ export default function Bilan2026Page() {
                   <span className="text-[11px] font-bold text-slate-400">
                     {dict.villagesBarLabel}
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleNewFiche}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${editingFicheId === null
-                      ? "bg-emerald-600 text-white border-emerald-500"
-                      : "bg-slate-950 text-emerald-400 border-slate-800 hover:border-emerald-500/40"
-                      }`}
-                  >
-                    + {dict.newFicheBtn}
-                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={handleNewFiche}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${editingFicheId === null
+                        ? "bg-emerald-600 text-white border-emerald-500"
+                        : "bg-slate-950 text-emerald-400 border-slate-800 hover:border-emerald-500/40"
+                        }`}
+                    >
+                      + {dict.newFicheBtn}
+                    </button>
+                  )}
                   {fichesList.map((f) => (
                     <button
                       key={f.id}
@@ -1186,9 +1197,10 @@ export default function Bilan2026Page() {
                   <input
                     type="text"
                     value={sectionName}
+                    readOnly={!isAdmin && Boolean(assignedVillage)}
                     onChange={(e) => setSectionName(e.target.value)}
                     placeholder={dict.sectionPlaceholder}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 read-only:opacity-80"
                   />
                 </div>
                 <div className="flex items-end">
