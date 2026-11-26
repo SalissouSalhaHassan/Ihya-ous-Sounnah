@@ -406,6 +406,11 @@ export default function Commissions2026Page() {
 
   const [directories, setDirectories] = useState<VillageDirectory[]>(INITIAL_DIRECTORIES);
   const [selectedVillageId, setSelectedVillageId] = useState<string>("maradi-cr");
+  const [authInfo, setAuthInfo] = useState<{
+    authenticated: boolean;
+    role?: string;
+    village?: string | null;
+  }>({ authenticated: false });
   const [selectedId, setSelectedId] = useState<string>("restauration");
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -430,21 +435,55 @@ export default function Commissions2026Page() {
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    queueMicrotask(() => {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setDirectories(parsed);
+    if (raw) {
+      queueMicrotask(() => {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDirectories(parsed);
+          }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
-      }
-    });
+      });
+    }
+
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setAuthInfo(data);
+      })
+      .catch(() => {});
   }, []);
 
+  const isAdmin = authInfo.authenticated && authInfo.role === "ADMIN";
+  const assignedVillage =
+    authInfo.authenticated && !isAdmin && authInfo.village?.trim()
+      ? authInfo.village.trim()
+      : null;
+
+  const visibleDirectories: VillageDirectory[] = (() => {
+    if (!assignedVillage) return directories;
+    const needle = assignedVillage.toLowerCase();
+    const matched = directories.filter(
+      (d) =>
+        d.villageName.toLowerCase().includes(needle) ||
+        needle.includes(d.villageName.toLowerCase())
+    );
+    if (matched.length > 0) return matched;
+    // إذا لم تُنشأ هذه القرية في التخزين المحلي بعد، نعرضها فارغة باسمها فقط دون كشف المقر الرئيسي
+    return [
+      {
+        id: `village-${needle.replace(/\s+/g, "-")}`,
+        villageName: assignedVillage,
+        commissions: createEmptyVillageCommissions(assignedVillage),
+      },
+    ];
+  })();
+
   const activeDirectory =
-    directories.find((d) => d.id === selectedVillageId) || directories[0];
+    visibleDirectories.find((d) => d.id === selectedVillageId) ||
+    visibleDirectories[0];
   const commissions = activeDirectory.commissions;
   const activeCommission =
     commissions.find((c) => c.id === selectedId) || commissions[0];
@@ -487,7 +526,10 @@ export default function Commissions2026Page() {
     e.preventDefault();
     if (!newName.trim()) return;
 
-    const updatedDirs = directories.map((dir) => {
+    const baseDirs = directories.some((d) => d.id === activeDirectory.id)
+      ? directories
+      : [...directories, activeDirectory];
+    const updatedDirs = baseDirs.map((dir) => {
       if (dir.id !== activeDirectory.id) return dir;
       return {
         ...dir,
@@ -540,7 +582,10 @@ export default function Commissions2026Page() {
   };
 
   const handleDeleteMember = (idx: number) => {
-    const updatedDirs = directories.map((dir) => {
+    const baseDirs = directories.some((d) => d.id === activeDirectory.id)
+      ? directories
+      : [...directories, activeDirectory];
+    const updatedDirs = baseDirs.map((dir) => {
       if (dir.id !== activeDirectory.id) return dir;
       return {
         ...dir,
@@ -638,14 +683,16 @@ export default function Commissions2026Page() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 print:hidden">
-            <button
-              type="button"
-              onClick={() => setIsBatchVillagesOpen(true)}
-              className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>{dict.batchVillagesBtn}</span>
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsBatchVillagesOpen(true)}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>{dict.batchVillagesBtn}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleOpenAddMember}
@@ -676,7 +723,7 @@ export default function Commissions2026Page() {
             <MapPin className="w-3.5 h-3.5 text-emerald-400" />
             {dict.villagesLabel}
           </span>
-          {directories.map((dir) => {
+          {visibleDirectories.map((dir) => {
             const active = dir.id === activeDirectory.id;
             return (
               <div
@@ -693,7 +740,7 @@ export default function Commissions2026Page() {
                 >
                   {dir.villageName}
                 </button>
-                {dir.id !== "maradi-cr" && (
+                {isAdmin && dir.id !== "maradi-cr" && (
                   <button
                     type="button"
                     onClick={() => handleDeleteVillage(dir.id)}
@@ -706,14 +753,16 @@ export default function Commissions2026Page() {
               </div>
             );
           })}
-          <button
-            type="button"
-            onClick={() => setIsBatchVillagesOpen(true)}
-            className="px-3 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-dashed border-emerald-500/40 text-emerald-400 text-xs font-bold flex items-center gap-1 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>{dict.addVillageBtn}</span>
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setIsBatchVillagesOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-dashed border-emerald-500/40 text-emerald-400 text-xs font-bold flex items-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{dict.addVillageBtn}</span>
+            </button>
+          )}
         </div>
 
         {/* Commission Selector Cards */}
