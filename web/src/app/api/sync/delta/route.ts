@@ -171,6 +171,7 @@ export async function POST(req: NextRequest) {
               witness2_name: String(item.payload.witness2Name || "الشاهد الثاني"),
               dowry_amount: Number(item.payload.dowryAmount) || 0,
               dowry_status: String(item.payload.dowryStatus || "PAID"),
+              dowry_notes: item.payload.dowryNotes ? String(item.payload.dowryNotes) : null,
               contract_date: String(
                 item.payload.contractDate || new Date().toISOString().split("T")[0]
               ),

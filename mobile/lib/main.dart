@@ -111,9 +111,17 @@ class _HomeScreenState extends State<HomeScreen> {
   final _studentController = TextEditingController();
   final _surahController = TextEditingController();
   final _groomController = TextEditingController();
+  final _groomRepController = TextEditingController();
   final _brideController = TextEditingController();
   final _guardianController = TextEditingController();
   final _dowryController = TextEditingController(text: '150000');
+  final _witness1Controller = TextEditingController();
+  final _witness2Controller = TextEditingController();
+  final _contractDateController = TextEditingController(
+    text: DateTime.now().toIso8601String().split('T')[0],
+  );
+  final _imamNameController = TextEditingController();
+  String _brideMaritalStatus = 'CELIBATAIRE';
   final _mosqueNameController = TextEditingController();
   final _mosqueCityController = TextEditingController();
   final _plateController = TextEditingController();
@@ -132,9 +140,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _studentController.dispose();
     _surahController.dispose();
     _groomController.dispose();
+    _groomRepController.dispose();
     _brideController.dispose();
     _guardianController.dispose();
     _dowryController.dispose();
+    _witness1Controller.dispose();
+    _witness2Controller.dispose();
+    _contractDateController.dispose();
+    _imamNameController.dispose();
     _mosqueNameController.dispose();
     _mosqueCityController.dispose();
     _plateController.dispose();
@@ -231,27 +244,55 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _recordNikah() async {
     if (_groomController.text.trim().isEmpty || _brideController.text.trim().isEmpty) return;
+
+    final statusLabels = {
+      'CELIBATAIRE': 'البكر / Célibataire',
+      'DIVORCEE': 'الثيب / Divorcée',
+      'VEUVE': 'أرملة / Veuve',
+    };
+    final notesParts = <String>[
+      if (_groomRepController.text.trim().isNotEmpty)
+        'وكيل الزوج: ${_groomRepController.text.trim()}',
+      'حالة الزوجة: ${statusLabels[_brideMaritalStatus] ?? _brideMaritalStatus}',
+    ];
+
     await OfflineSyncEngine.recordFieldAction(
       entityType: 'MARRIAGE',
       entityId: const Uuid().v4(),
       action: SyncAction.insert,
       payload: {
-        if (_selectedMosqueId != null) 'mosqueId': _selectedMosqueId,
+        'mosqueId': ?_selectedMosqueId,
         'contractNumber': 'NIKAH-MOB-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
         'groomFullName': _groomController.text.trim(),
         'brideFullName': _brideController.text.trim(),
         'guardianName': _guardianController.text.trim().isEmpty
             ? 'الوالد'
             : _guardianController.text.trim(),
+        'witness1Name': _witness1Controller.text.trim().isEmpty
+            ? 'الشاهد الأول'
+            : _witness1Controller.text.trim(),
+        'witness2Name': _witness2Controller.text.trim().isEmpty
+            ? 'الشاهد الثاني'
+            : _witness2Controller.text.trim(),
         'dowryAmount': double.tryParse(_dowryController.text.trim()) ?? 150000,
         'dowryStatus': 'PAID',
-        'contractDate': DateTime.now().toIso8601String().split('T')[0],
+        'dowryNotes': notesParts.join(' | '),
+        'contractDate': _contractDateController.text.trim().isEmpty
+            ? DateTime.now().toIso8601String().split('T')[0]
+            : _contractDateController.text.trim(),
+        if (_imamNameController.text.trim().isNotEmpty)
+          'imamName': _imamNameController.text.trim(),
       },
       staffId: _staffId,
     );
     _groomController.clear();
+    _groomRepController.clear();
     _brideController.clear();
     _guardianController.clear();
+    _witness1Controller.clear();
+    _witness2Controller.clear();
+    _imamNameController.clear();
+    setState(() => _brideMaritalStatus = 'CELIBATAIRE');
     _refreshLocalState();
     _showNotification(_t('saveLocal'), color: const Color(0xFFE11D48));
   }
@@ -529,9 +570,16 @@ class _HomeScreenState extends State<HomeScreen> {
             locale: widget.currentLocale,
             syncBanner: banner,
             groomController: _groomController,
+            groomRepController: _groomRepController,
             brideController: _brideController,
             guardianController: _guardianController,
             dowryController: _dowryController,
+            witness1Controller: _witness1Controller,
+            witness2Controller: _witness2Controller,
+            contractDateController: _contractDateController,
+            imamNameController: _imamNameController,
+            brideMaritalStatus: _brideMaritalStatus,
+            onMaritalStatusChanged: (val) => setState(() => _brideMaritalStatus = val),
             cachedMosques: _cachedMosques,
             selectedMosqueId: _selectedMosqueId,
             onMosqueChanged: (val) => setState(() => _selectedMosqueId = val),

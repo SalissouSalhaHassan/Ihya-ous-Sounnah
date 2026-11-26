@@ -6,9 +6,16 @@ class NikahTab extends StatelessWidget {
   final String locale;
   final Widget syncBanner;
   final TextEditingController groomController;
+  final TextEditingController groomRepController;
   final TextEditingController brideController;
   final TextEditingController guardianController;
   final TextEditingController dowryController;
+  final TextEditingController witness1Controller;
+  final TextEditingController witness2Controller;
+  final TextEditingController contractDateController;
+  final TextEditingController imamNameController;
+  final String brideMaritalStatus;
+  final ValueChanged<String> onMaritalStatusChanged;
   final List<Map<String, dynamic>> cachedMosques;
   final String? selectedMosqueId;
   final ValueChanged<String?> onMosqueChanged;
@@ -19,9 +26,16 @@ class NikahTab extends StatelessWidget {
     required this.locale,
     required this.syncBanner,
     required this.groomController,
+    required this.groomRepController,
     required this.brideController,
     required this.guardianController,
     required this.dowryController,
+    required this.witness1Controller,
+    required this.witness2Controller,
+    required this.contractDateController,
+    required this.imamNameController,
+    required this.brideMaritalStatus,
+    required this.onMaritalStatusChanged,
     required this.cachedMosques,
     required this.selectedMosqueId,
     required this.onMosqueChanged,
@@ -32,6 +46,12 @@ class NikahTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final statusOptions = [
+      ('CELIBATAIRE', _t('statusVirgin')),
+      ('DIVORCEE', _t('statusDivorced')),
+      ('VEUVE', _t('statusWidow')),
+    ];
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -44,12 +64,68 @@ class NikahTab extends StatelessWidget {
             icon: Icons.favorite,
             accentColor: const Color(0xFFFB7185),
             children: [
+              // 1. اسم الزوج
+              TextField(
+                controller: groomController,
+                decoration: manaraFieldDecoration('${_t('groomName')} *'),
+              ),
+              const SizedBox(height: 12),
+              // 2. اسم الزوجة
+              TextField(
+                controller: brideController,
+                decoration: manaraFieldDecoration('${_t('brideName')} *'),
+              ),
+              const SizedBox(height: 12),
+              // 3. اسم وكيل الزوج
+              TextField(
+                controller: groomRepController,
+                decoration: manaraFieldDecoration(_t('groomRep')),
+              ),
+              const SizedBox(height: 12),
+              // 4. اسم ولي الزوجة
+              TextField(
+                controller: guardianController,
+                decoration: manaraFieldDecoration('${_t('guardianName')} *'),
+              ),
+              const SizedBox(height: 12),
+              // 5. الصداق
+              TextField(
+                controller: dowryController,
+                keyboardType: TextInputType.number,
+                decoration: manaraFieldDecoration(_t('dowryAmount')),
+              ),
+              const SizedBox(height: 12),
+              // 6. الشهود
+              Text(
+                _t('witnesses'),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: witness1Controller,
+                      decoration: manaraFieldDecoration(_t('witness1')),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: witness2Controller,
+                      decoration: manaraFieldDecoration(_t('witness2')),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // 7. مكان العقد : مسجد
               if (cachedMosques.isNotEmpty) ...[
                 DropdownButtonFormField<String>(
                   initialValue: cachedMosques.any((m) => m['id']?.toString() == selectedMosqueId)
                       ? selectedMosqueId
                       : null,
-                  decoration: manaraFieldDecoration(_t('mosqueName')),
+                  decoration: manaraFieldDecoration(_t('mosquePlace')),
                   dropdownColor: const Color(0xFF1E293B),
                   items: cachedMosques
                       .map((m) => DropdownMenuItem<String>(
@@ -61,25 +137,55 @@ class NikahTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
               ],
+              // 8. تاريخ العقد
               TextField(
-                controller: groomController,
-                decoration: manaraFieldDecoration(_t('groomName')),
+                controller: contractDateController,
+                readOnly: true,
+                onTap: () async {
+                  final now = DateTime.now();
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.tryParse(contractDateController.text) ?? now,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2035),
+                  );
+                  if (picked != null) {
+                    contractDateController.text = picked.toIso8601String().split('T')[0];
+                  }
+                },
+                decoration: manaraFieldDecoration(_t('contractDate')).copyWith(
+                  suffixIcon: const Icon(Icons.calendar_today, size: 18),
+                ),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: brideController,
-                decoration: manaraFieldDecoration(_t('brideName')),
+              // 9. حالة الزوجة (البكر / الثيب / أرملة)
+              Text(
+                _t('maritalStatus'),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: statusOptions.map((opt) {
+                  final selected = brideMaritalStatus == opt.$1;
+                  return ChoiceChip(
+                    label: Text(opt.$2, style: const TextStyle(fontSize: 12)),
+                    selected: selected,
+                    selectedColor: const Color(0xFFE11D48).withValues(alpha: 0.25),
+                    checkmarkColor: const Color(0xFFFB7185),
+                    side: BorderSide(
+                      color: selected ? const Color(0xFFE11D48) : Colors.white12,
+                    ),
+                    onSelected: (_) => onMaritalStatusChanged(opt.$1),
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 12),
+              // 10. ختم وتوقيع الإمام
               TextField(
-                controller: guardianController,
-                decoration: manaraFieldDecoration(_t('guardianName')),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: dowryController,
-                keyboardType: TextInputType.number,
-                decoration: manaraFieldDecoration(_t('dowryAmount')),
+                controller: imamNameController,
+                decoration: manaraFieldDecoration(_t('imamSign')),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
