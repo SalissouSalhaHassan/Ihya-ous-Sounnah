@@ -60,7 +60,7 @@ class ManaraSyncClient {
       'deviceId': deviceId,
       'staffId': staffId,
       if (organizationId.isNotEmpty) 'organizationId': organizationId,
-      if (lastCheckpoint != null) 'lastSyncCheckpoint': lastCheckpoint,
+      'lastSyncCheckpoint': ?lastCheckpoint,
       'batch': pendingItems.map((item) => item.toMap()).toList(),
     };
 
