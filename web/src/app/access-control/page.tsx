@@ -152,6 +152,8 @@ export default function AccessControlPage() {
   const [users, setUsers] = useState<AccessUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [denyStatus, setDenyStatus] = useState<401 | 403 | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState<string | null>(null);
 
@@ -164,17 +166,23 @@ export default function AccessControlPage() {
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
+    setApiError(null);
     try {
       const res = await fetch("/api/admin/users");
       if (res.status === 401 || res.status === 403) {
         setAccessDenied(true);
+        setDenyStatus(res.status);
         setUsers([]);
         return;
       }
       if (res.ok) {
         const data = await res.json();
         setAccessDenied(false);
+        setDenyStatus(null);
         setUsers(data.users || []);
+      } else {
+        const errData = await res.json().catch(() => null);
+        setApiError(errData?.error || `HTTP ${res.status}`);
       }
     } finally {
       setLoading(false);
@@ -301,6 +309,12 @@ export default function AccessControlPage() {
           </div>
         )}
 
+        {apiError && (
+          <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs font-bold">
+            {apiError}
+          </div>
+        )}
+
         {/* Access Denied / Login Prompt */}
         {accessDenied ? (
           <div className="bg-slate-900/70 border border-rose-500/30 rounded-3xl p-8 text-center space-y-4">
@@ -308,7 +322,15 @@ export default function AccessControlPage() {
               <Lock className="w-7 h-7" />
             </div>
             <h2 className="text-lg font-black text-white">{dict.restrictedTitle}</h2>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">{dict.restrictedDesc}</p>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              {denyStatus === 403
+                ? currentLocale === "ar"
+                  ? "أنت مسجّل الدخول حالياً، لكن حسابك لا يملك دور ADMIN في app_metadata داخل Supabase."
+                  : currentLocale === "ha"
+                    ? "Ka shiga ciki, amma asusunka ba shi da matsayin ADMIN a Supabase (app_metadata)."
+                    : "Vous êtes connecté, mais votre compte n'a pas le rôle ADMIN dans app_metadata (Supabase)."
+                : dict.restrictedDesc}
+            </p>
             <Link
               href="/login"
               className="inline-block px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl"
