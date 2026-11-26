@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'core/app_config.dart';
 import 'core/app_translations.dart';
 import 'core/offline_sync_engine.dart';
 import 'core/sync_client.dart';
@@ -173,13 +174,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _triggerSync() async {
     setState(() => _isSyncing = true);
     try {
-      const apiBaseUrl = String.fromEnvironment(
-        'MANARA_API_URL',
-        defaultValue: 'http://10.0.2.2:3000',
-      );
       final deviceId = await OfflineSyncEngine.getOrCreateDeviceId();
       final client = ManaraSyncClient(
-        serverBaseUrl: apiBaseUrl,
+        serverBaseUrl: AppConfig.apiBaseUrl,
         deviceId: deviceId,
         staffId: _staffId,
         organizationId: (widget.session['organizationId'] ?? '').toString(),

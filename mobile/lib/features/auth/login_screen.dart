@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/app_config.dart';
 import '../../core/app_translations.dart';
 import '../../core/sync_client.dart';
 
@@ -43,12 +44,8 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      const apiBaseUrl = String.fromEnvironment(
-        'MANARA_API_URL',
-        defaultValue: 'http://10.0.2.2:3000',
-      );
       await ManaraSyncClient.login(
-        serverBaseUrl: apiBaseUrl,
+        serverBaseUrl: AppConfig.apiBaseUrl,
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );

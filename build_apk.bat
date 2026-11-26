@@ -47,7 +47,7 @@ call flutter analyze --no-fatal-infos
 
 echo.
 echo [4/4] Building Release APK ...
-call flutter build apk --release --no-pub --no-tree-shake-icons
+call flutter build apk --release --no-pub --no-tree-shake-icons --dart-define=MANARA_API_URL=https://ihya-ous-sounnah.vercel.app
 
 if %ERRORLEVEL% equ 0 (
     echo.
