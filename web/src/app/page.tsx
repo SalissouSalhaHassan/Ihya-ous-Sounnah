@@ -161,24 +161,20 @@ export default function HomePage() {
   const [progressList, setProgressList] = useState<ProgressItem[]>([]);
   const [marriagesList, setMarriagesList] = useState<MarriageContractItem[]>([]);
 
-  // نافذة تسجيل عقد زواج شرعي بالمسجد
+  // نافذة تسجيل عقد زواج شرعي بالمسجد (مطابقة لشهادة عقد الزواج الرسمية)
   const [isMarriageModalOpen, setIsMarriageModalOpen] = useState(false);
   const [isSubmittingMarriage, setIsSubmittingMarriage] = useState(false);
   const [marriageSuccess, setMarriageSuccess] = useState(false);
   const [groomName, setGroomName] = useState("");
-  const [groomPhone, setGroomPhone] = useState("");
-  const [groomNationalId, setGroomNationalId] = useState("");
-  const [groomBirthDate, setGroomBirthDate] = useState("");
+  const [groomRepresentative, setGroomRepresentative] = useState("");
   const [brideName, setBrideName] = useState("");
-  const [brideNationalId, setBrideNationalId] = useState("");
-  const [brideBirthDate, setBrideBirthDate] = useState("");
   const [guardianName, setGuardianName] = useState("");
-  const [guardianRelation, setGuardianRelation] = useState("الوالد (الأب)");
   const [witness1Name, setWitness1Name] = useState("");
   const [witness2Name, setWitness2Name] = useState("");
   const [dowryAmount, setDowryAmount] = useState(150000);
-  const [dowryStatus, setDowryStatus] = useState("PAID");
-  const [dowryNotes, setDowryNotes] = useState("");
+  const [brideMaritalStatus, setBrideMaritalStatus] = useState<
+    "CELIBATAIRE" | "DIVORCEE" | "VEUVE"
+  >("CELIBATAIRE");
   const [contractDate, setContractDate] = useState("");
   const [marriageImamName, setMarriageImamName] = useState("");
   const [marriageMosqueId, setMarriageMosqueId] = useState("");
@@ -405,6 +401,20 @@ export default function HomePage() {
     e.preventDefault();
     if (!groomName.trim() || !brideName.trim() || !guardianName.trim()) return;
 
+    const statusLabelMap = {
+      CELIBATAIRE: "البكر / Célibataire",
+      DIVORCEE: "الثيب / Divorcée",
+      VEUVE: "أرملة / Veuve",
+    };
+    const metaNotes = [
+      groomRepresentative.trim()
+        ? `وكيل الزوج: ${groomRepresentative.trim()}`
+        : null,
+      `حالة الزوجة: ${statusLabelMap[brideMaritalStatus]}`,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
     setIsSubmittingMarriage(true);
     try {
       const res = await fetch("/api/marriage", {
@@ -412,19 +422,13 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           groomFullName: groomName.trim(),
-          groomPhone: groomPhone.trim() || undefined,
-          groomNationalId: groomNationalId.trim() || undefined,
-          groomBirthDate: groomBirthDate || undefined,
           brideFullName: brideName.trim(),
-          brideNationalId: brideNationalId.trim() || undefined,
-          brideBirthDate: brideBirthDate || undefined,
           guardianName: guardianName.trim(),
-          guardianRelation,
           witness1Name: witness1Name.trim() || "الشاهد الأول المعتمد",
           witness2Name: witness2Name.trim() || "الشاهد الثاني المعتمد",
           dowryAmount,
-          dowryStatus,
-          dowryNotes: dowryNotes.trim() || undefined,
+          dowryStatus: "PAID",
+          dowryNotes: metaNotes,
           contractDate: contractDate || undefined,
           imamName: marriageImamName.trim() || undefined,
           mosqueId: marriageMosqueId || (mosquesList[0]?.id || undefined),
@@ -439,16 +443,12 @@ export default function HomePage() {
           setMarriageSuccess(false);
           setIsMarriageModalOpen(false);
           setGroomName("");
-          setGroomPhone("");
-          setGroomNationalId("");
-          setGroomBirthDate("");
+          setGroomRepresentative("");
           setBrideName("");
-          setBrideNationalId("");
-          setBrideBirthDate("");
           setGuardianName("");
           setWitness1Name("");
           setWitness2Name("");
-          setDowryNotes("");
+          setBrideMaritalStatus("CELIBATAIRE");
           setMarriageImamName("");
         }, 1200);
       } else if (res.status === 401 || res.status === 403) {
@@ -1129,53 +1129,7 @@ export default function HomePage() {
               </div>
             ) : (
               <form onSubmit={handleRegisterMarriage} className="space-y-4 text-xs">
-                {/* 1. المسجد والمأذون والتاريخ */}
-                <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-slate-300 font-bold block mb-1">{t.nav.mosques} *</label>
-                      <select
-                        value={marriageMosqueId}
-                        onChange={(e) => setMarriageMosqueId(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                      >
-                        {mosquesList.map((m) => (
-                          <option key={m.id} value={m.id}>{m.name} ({m.city || "Niger"})</option>
-                        ))}
-                        {mosquesList.length === 0 && (
-                          <option value="">جامع النور الكبير - مرادي</option>
-                        )}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-slate-300 font-bold block mb-1">
-                        {currentLocale === "ar"
-                          ? "الإمام / المأذون الشرعي"
-                          : currentLocale === "ha"
-                            ? "Limamin Daura Aure"
-                            : "Imam / Officiant"}
-                      </label>
-                      <input
-                        type="text"
-                        value={marriageImamName}
-                        onChange={(e) => setMarriageImamName(e.target.value)}
-                        placeholder={currentLocale === "ar" ? "الشيخ..." : "Liman / Cheikh..."}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.dateLabel}</label>
-                    <input
-                      type="date"
-                      value={contractDate}
-                      onChange={(e) => setContractDate(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* 2. بيانات الزوج */}
+                {/* 1. الزوج والزوجة */}
                 <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -1190,100 +1144,32 @@ export default function HomePage() {
                       />
                     </div>
                     <div>
-                      <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.groomPhoneLabel}</label>
+                      <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.brideNameLabel}</label>
                       <input
                         type="text"
-                        value={groomPhone}
-                        onChange={(e) => setGroomPhone(e.target.value)}
-                        placeholder="+227 90 00 00 00"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-slate-300 font-bold block mb-1">
-                        {currentLocale === "ar"
-                          ? "رقم هوية الزوج (NNI / CNIB)"
-                          : currentLocale === "ha"
-                            ? "Lambar Shaidar Ango (NNI)"
-                            : "N° Pièce d'identité (Époux)"}
-                      </label>
-                      <input
-                        type="text"
-                        value={groomNationalId}
-                        onChange={(e) => setGroomNationalId(e.target.value)}
-                        placeholder="NIG-..."
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-slate-300 font-bold block mb-1">
-                        {currentLocale === "ar"
-                          ? "تاريخ ميلاد الزوج"
-                          : currentLocale === "ha"
-                            ? "Ranar Haihuwar Ango"
-                            : "Date de naissance (Époux)"}
-                      </label>
-                      <input
-                        type="date"
-                        value={groomBirthDate}
-                        onChange={(e) => setGroomBirthDate(e.target.value)}
+                        required
+                        value={brideName}
+                        onChange={(e) => setBrideName(e.target.value)}
+                        placeholder="Fatima Salissou..."
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* 3. بيانات الزوجة */}
+                {/* 2. وكيل الزوج وولي الزوجة */}
                 <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
-                  <div>
-                    <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.brideNameLabel}</label>
-                    <input
-                      type="text"
-                      required
-                      value={brideName}
-                      onChange={(e) => setBrideName(e.target.value)}
-                      placeholder="Fatima Salissou..."
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                    />
-                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-slate-300 font-bold block mb-1">
-                        {currentLocale === "ar"
-                          ? "رقم هوية الزوجة (NNI / CNIB)"
-                          : currentLocale === "ha"
-                            ? "Lambar Shaidar Amarya (NNI)"
-                            : "N° Pièce d'identité (Épouse)"}
-                      </label>
+                      <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.groomRepLabel}</label>
                       <input
                         type="text"
-                        value={brideNationalId}
-                        onChange={(e) => setBrideNationalId(e.target.value)}
-                        placeholder="NIG-..."
+                        value={groomRepresentative}
+                        onChange={(e) => setGroomRepresentative(e.target.value)}
+                        placeholder="Moussa Ibrahim..."
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
                       />
                     </div>
-                    <div>
-                      <label className="text-slate-300 font-bold block mb-1">
-                        {currentLocale === "ar"
-                          ? "تاريخ ميلاد الزوجة"
-                          : currentLocale === "ha"
-                            ? "Ranar Haihuwar Amarya"
-                            : "Date de naissance (Épouse)"}
-                      </label>
-                      <input
-                        type="date"
-                        value={brideBirthDate}
-                        onChange={(e) => setBrideBirthDate(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. الولي والشهود */}
-                <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.guardianNameLabel}</label>
                       <input
@@ -1295,82 +1181,106 @@ export default function HomePage() {
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
                       />
                     </div>
-                    <div>
-                      <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.guardianRelLabel}</label>
-                      <select
-                        value={guardianRelation}
-                        onChange={(e) => setGuardianRelation(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                      >
-                        <option value="الوالد (الأب)">الوالد (الأب)</option>
-                        <option value="الجد">الجد</option>
-                        <option value="الأخ الشقيق">الأخ الشقيق</option>
-                        <option value="العم">العم</option>
-                        <option value="وكيل الولي الشرعي">وكيل الولي الشرعي</option>
-                        <option value="القاضي / إمام المسجد (السلطان)">القاضي / إمام المسجد</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.witness1Label}</label>
+                  </div>
+                </div>
+
+                {/* 3. الصداق والشهود */}
+                <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+                  <div>
+                    <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.dowryAmountLabel}</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={5000}
+                      value={dowryAmount}
+                      onChange={(e) => setDowryAmount(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.witnessesSectionLabel}</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <input
                         type="text"
                         value={witness1Name}
                         onChange={(e) => setWitness1Name(e.target.value)}
+                        placeholder={t.marriageModule.witness1Label}
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
                       />
-                    </div>
-                    <div>
-                      <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.witness2Label}</label>
                       <input
                         type="text"
                         value={witness2Name}
                         onChange={(e) => setWitness2Name(e.target.value)}
+                        placeholder={t.marriageModule.witness2Label}
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* 5. المهر والشروط */}
+                {/* 4. مكان العقد (المسجد) والتاريخ وحالة الزوجة والإمام */}
                 <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.dowryAmountLabel}</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={5000}
-                        value={dowryAmount}
-                        onChange={(e) => setDowryAmount(Number(e.target.value))}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.dowryStatusLabel}</label>
+                      <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.mosquePlaceLabel}</label>
                       <select
-                        value={dowryStatus}
-                        onChange={(e) => setDowryStatus(e.target.value)}
+                        value={marriageMosqueId}
+                        onChange={(e) => setMarriageMosqueId(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
                       >
-                        <option value="PAID">{t.marriageModule.paidLabel}</option>
-                        <option value="DEFERRED">{t.marriageModule.deferredLabel}</option>
-                        <option value="PARTIAL">PARTIAL</option>
+                        {mosquesList.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name} ({m.city || "Niger"})</option>
+                        ))}
+                        {mosquesList.length === 0 && (
+                          <option value="">جامع النور الكبير - مرادي</option>
+                        )}
                       </select>
                     </div>
+                    <div>
+                      <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.dateLabel}</label>
+                      <input
+                        type="date"
+                        value={contractDate}
+                        onChange={(e) => setContractDate(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
+                      />
+                    </div>
                   </div>
+
                   <div>
-                    <label className="text-slate-300 font-bold block mb-1">
-                      {currentLocale === "ar"
-                        ? "ملاحظات وشروط إضافية للعقد"
-                        : currentLocale === "ha"
-                          ? "Ƙarin Bayani ko Sharuɗɗan Sadaki"
-                          : "Notes & Conditions du contrat"}
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={dowryNotes}
-                      onChange={(e) => setDowryNotes(e.target.value)}
-                      placeholder="..."
+                    <label className="text-slate-300 font-bold block mb-1.5">{t.marriageModule.maritalStatusLabel}</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(
+                        [
+                          { id: "CELIBATAIRE", label: t.marriageModule.statusVirgin },
+                          { id: "DIVORCEE", label: t.marriageModule.statusDivorced },
+                          { id: "VEUVE", label: t.marriageModule.statusWidow },
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setBrideMaritalStatus(opt.id)}
+                          className={`p-2.5 rounded-xl border font-bold text-center transition cursor-pointer ${
+                            brideMaritalStatus === opt.id
+                              ? "bg-rose-500/20 border-rose-500 text-rose-300"
+                              : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
+                          }`}
+                        >
+                          {brideMaritalStatus === opt.id ? "☑ " : "☐ "}
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-slate-300 font-bold block mb-1">{t.marriageModule.imamSignLabel}</label>
+                    <input
+                      type="text"
+                      value={marriageImamName}
+                      onChange={(e) => setMarriageImamName(e.target.value)}
+                      placeholder="Imam / Cheikh..."
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
                     />
                   </div>
