@@ -164,6 +164,9 @@ const DICT: Record<
     recentBilanTitle: string;
     emptyList: string;
     openModule: string;
+    authRequiredTitle: string;
+    authRequiredDesc: string;
+    signInNow: string;
   }
 > = {
   fr: {
@@ -203,6 +206,10 @@ const DICT: Record<
     recentBilanTitle: "Dernières Fiches Bilan 2026",
     emptyList: "Aucune donnée enregistrée pour le moment.",
     openModule: "Ouvrir",
+    authRequiredTitle: "Connexion requise pour afficher les données",
+    authRequiredDesc:
+      "Les données des mosquées, contrats, finances et bilans sont protégées. Connectez-vous pour charger les statistiques de votre organisation.",
+    signInNow: "Se connecter",
   },
   ar: {
     badge: "القيادة التنفيذية • العام الكامل 2026",
@@ -241,6 +248,10 @@ const DICT: Record<
     recentBilanTitle: "أحدث تقارير الحصيلة 2026",
     emptyList: "لا توجد سجلات مضافة حتى الآن.",
     openModule: "فتح",
+    authRequiredTitle: "تسجيل الدخول مطلوب لعرض البيانات الحية",
+    authRequiredDesc:
+      "بيانات المساجد والعقود والمالية والحصيلة السنوية محمية. يرجى تسجيل الدخول لتحميل إحصائيات منظمتك.",
+    signInNow: "تسجيل الدخول الآن",
   },
   ha: {
     badge: "Babban Tsarin Kulawa • Shekarar 2026",
@@ -279,6 +290,10 @@ const DICT: Record<
     recentBilanTitle: "Sabbin Rahotannin 2026",
     emptyList: "Babu bayanai tukuna.",
     openModule: "Buɗe",
+    authRequiredTitle: "Ana buƙatar shiga don ganin bayanai",
+    authRequiredDesc:
+      "An kare bayanan masallatai, aure, kuɗi da rahotanni. Shiga ciki don loda ƙididdigar ƙungiyar ku.",
+    signInNow: "Shiga Yanzu",
   },
 };
 
@@ -347,6 +362,7 @@ export default function GlobalDashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [dbHealthy, setDbHealthy] = useState<boolean | null>(null);
+  const [authRequired, setAuthRequired] = useState(false);
   const [mosques, setMosques] = useState<MosqueSummary[]>([]);
   const [circlesCount, setCirclesCount] = useState(0);
   const [progressCount, setProgressCount] = useState(0);
@@ -366,23 +382,42 @@ export default function GlobalDashboardPage() {
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
+      let hasUnauthorized = false;
+      const fetchJson = async (url: string) => {
+        const r = await fetch(url);
+        if (r.status === 401) {
+          hasUnauthorized = true;
+          return null;
+        }
+        return r.ok ? r.json() : null;
+      };
+
       const results = await Promise.allSettled([
-        fetch("/api/supabase/health").then((r) => (r.ok ? r.json() : null)),
-        fetch("/api/mosques").then((r) => (r.ok ? r.json() : null)),
-        fetch("/api/quran/circles").then((r) => (r.ok ? r.json() : null)),
-        fetch("/api/quran/progress").then((r) => (r.ok ? r.json() : null)),
-        fetch("/api/marriage").then((r) => (r.ok ? r.json() : null)),
-        fetch("/api/donations").then((r) => (r.ok ? r.json() : null)),
-        fetch("/api/bilan-2026").then((r) => (r.ok ? r.json() : null)),
-        fetch("/api/fatwa").then((r) => (r.ok ? r.json() : null)),
-        fetch("/api/magazine").then((r) => (r.ok ? r.json() : null)),
+        fetchJson("/api/supabase/health"),
+        fetchJson("/api/mosques"),
+        fetchJson("/api/quran/circles"),
+        fetchJson("/api/quran/progress"),
+        fetchJson("/api/marriage"),
+        fetchJson("/api/donations"),
+        fetchJson("/api/bilan-2026"),
+        fetchJson("/api/fatwa"),
+        fetchJson("/api/magazine"),
       ]);
+
+      setAuthRequired(hasUnauthorized);
 
       const val = (i: number) =>
         results[i]?.status === "fulfilled" ? results[i].value : null;
 
       const health = val(0);
-      setDbHealthy(Boolean(health && (health.ok || health.status === "ok")));
+      setDbHealthy(
+        Boolean(
+          health &&
+            (health.ok ||
+              health.status === "ok" ||
+              health.status === "CONNECTED")
+        )
+      );
 
       const mRes = val(1);
       setMosques(Array.isArray(mRes?.mosques) ? mRes.mosques : []);
@@ -669,6 +704,29 @@ export default function GlobalDashboardPage() {
               </p>
             </div>
           </div>
+
+          {/* Auth prompt banner when API returns 401 */}
+          {authRequired && (
+            <div className="print:hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <KeyRound className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-amber-300">
+                    {dict.authRequiredTitle}
+                  </p>
+                  <p className="text-xs text-amber-200/80 mt-0.5">
+                    {dict.authRequiredDesc}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/login"
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shrink-0 text-center"
+              >
+                {dict.signInNow}
+              </Link>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <button
