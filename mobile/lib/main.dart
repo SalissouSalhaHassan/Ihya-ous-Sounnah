@@ -424,11 +424,39 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E293B),
         elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            Text(_t('appName'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            Text(_t('tagline'), style: const TextStyle(fontSize: 11, color: Colors.white70)),
+            Container(
+              width: 34,
+              height: 34,
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.asset('assets/images/logo.jpg', fit: BoxFit.contain),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Ihya'ous Sounnah",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    _t('tagline'),
+                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         actions: [

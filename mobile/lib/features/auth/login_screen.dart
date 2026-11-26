@@ -92,10 +92,30 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.mosque, size: 48, color: Color(0xFF10B981)),
+                  Center(
+                    child: Container(
+                      width: 92,
+                      height: 92,
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                            blurRadius: 16,
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.asset('assets/images/logo.jpg', fit: BoxFit.contain),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Text(
-                    _t('appName'),
+                    "Ihya'ous Sounnah",
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
