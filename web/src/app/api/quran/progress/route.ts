@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, resolveOrganizationId } from "@/infrastructure/supabase/auth";
+import {
+  requireAuth,
+  resolveOrganizationId,
+  resolveVillageMosqueIds,
+} from "@/infrastructure/supabase/auth";
 
-// جلب سجل التسميع اليومي
+// جلب سجل التسميع اليومي (مع عزل القرية لغير الآدمن)
 export async function GET(req: NextRequest) {
   const auth = await requireAuth(undefined, req);
   if (!auth.ok) return auth.response;
@@ -9,6 +13,22 @@ export async function GET(req: NextRequest) {
   const { supabase, organizationId } = auth.context;
 
   try {
+    const villageMosqueIds = await resolveVillageMosqueIds(auth.context);
+    let villageCircleIds: string[] | null = null;
+    if (villageMosqueIds !== null) {
+      if (villageMosqueIds.length === 0) {
+        return NextResponse.json({ progress: [] });
+      }
+      const { data: circles } = await supabase
+        .from("quran_circles")
+        .select("id")
+        .in("mosque_id", villageMosqueIds);
+      villageCircleIds = (circles || []).map((c) => c.id as string);
+      if (villageCircleIds.length === 0) {
+        return NextResponse.json({ progress: [] });
+      }
+    }
+
     let query = supabase
       .from("quran_progress")
       .select("*, quran_circles(name)")
@@ -17,6 +37,9 @@ export async function GET(req: NextRequest) {
 
     if (organizationId) {
       query = query.eq("organization_id", organizationId);
+    }
+    if (villageCircleIds !== null) {
+      query = query.in("circle_id", villageCircleIds);
     }
 
     const { data: progress, error } = await query;

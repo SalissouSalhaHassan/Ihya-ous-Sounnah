@@ -1,8 +1,12 @@
 import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, resolveOrganizationId } from "@/infrastructure/supabase/auth";
+import {
+  requireAuth,
+  resolveOrganizationId,
+  resolveVillageMosqueIds,
+} from "@/infrastructure/supabase/auth";
 
-// جلب عقود الزواج المسجلة (محصور في الإدارة والأئمة)
+// جلب عقود الزواج المسجلة (محصور في الإدارة والأئمة، ومعزول حسب القرية لغير الآدمن)
 export async function GET(req: NextRequest) {
   const auth = await requireAuth(["ADMIN", "IMAM"], req);
   if (!auth.ok) return auth.response;
@@ -10,6 +14,11 @@ export async function GET(req: NextRequest) {
   const { supabase, organizationId } = auth.context;
 
   try {
+    const villageMosqueIds = await resolveVillageMosqueIds(auth.context);
+    if (villageMosqueIds !== null && villageMosqueIds.length === 0) {
+      return NextResponse.json({ contracts: [] });
+    }
+
     let query = supabase
       .from("marriage_contracts")
       .select("*, mosques(name, city), mosque_staff(full_name, role)")
@@ -17,6 +26,9 @@ export async function GET(req: NextRequest) {
 
     if (organizationId) {
       query = query.eq("organization_id", organizationId);
+    }
+    if (villageMosqueIds !== null) {
+      query = query.in("mosque_id", villageMosqueIds);
     }
 
     const { data: contracts, error } = await query;

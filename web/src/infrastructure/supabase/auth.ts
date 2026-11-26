@@ -15,6 +15,7 @@ export interface AuthContext {
   user: User;
   role: ManaraRole;
   organizationId: string | null;
+  village: string | null;
 }
 
 const VALID_ROLES: ManaraRole[] = [
@@ -61,12 +62,15 @@ export async function getAuthContext(req?: NextRequest | Request): Promise<AuthC
 
     const organizationId =
       (user.app_metadata?.organization_id as string | undefined) || null;
+    const village =
+      (user.app_metadata?.village as string | undefined)?.trim() || null;
 
     return {
       supabase: bearerClient as unknown as AuthContext["supabase"],
       user,
       role: extractRole(user),
       organizationId,
+      village,
     };
   }
 
@@ -82,13 +86,42 @@ export async function getAuthContext(req?: NextRequest | Request): Promise<AuthC
 
   const organizationId =
     (user.app_metadata?.organization_id as string | undefined) || null;
+  const village =
+    (user.app_metadata?.village as string | undefined)?.trim() || null;
 
   return {
     supabase,
     user,
     role: extractRole(user),
     organizationId,
+    village,
   };
+}
+
+/**
+ * يرجع معرفات المساجد التابعة لقرية المستخدم فقط؛
+ * أما ADMIN (أو المستخدم بدون قرية مقيدة) فيرجع null لرؤية جميع البيانات.
+ */
+export async function resolveVillageMosqueIds(
+  context: AuthContext
+): Promise<string[] | null> {
+  if (context.role === "ADMIN" || !context.village) {
+    return null;
+  }
+  const safeVillage = context.village.replace(/[,%*()]/g, "").trim();
+  if (!safeVillage) return null;
+
+  let query = context.supabase
+    .from("mosques")
+    .select("id")
+    .or(`village.ilike.%${safeVillage}%,city.ilike.%${safeVillage}%`);
+
+  if (context.organizationId) {
+    query = query.eq("organization_id", context.organizationId);
+  }
+
+  const { data } = await query;
+  return (data || []).map((m) => m.id as string);
 }
 
 export async function resolveOrganizationId(

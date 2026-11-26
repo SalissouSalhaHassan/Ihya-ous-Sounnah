@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuth(undefined, req);
   if (!auth.ok) return auth.response;
 
-  const { supabase, organizationId } = auth.context;
+  const { supabase, organizationId, role, village } = auth.context;
 
   try {
     let query = supabase
@@ -17,6 +17,15 @@ export async function GET(req: NextRequest) {
 
     if (organizationId) {
       query = query.eq("organization_id", organizationId);
+    }
+
+    if (role !== "ADMIN" && village) {
+      const safeVillage = village.replace(/[,%*()]/g, "").trim();
+      if (safeVillage) {
+        query = query.or(
+          `village.ilike.%${safeVillage}%,city.ilike.%${safeVillage}%`
+        );
+      }
     }
 
     const { data: mosques, error } = await query;
@@ -62,7 +71,10 @@ export async function POST(req: NextRequest) {
         name: cleanName,
         type: cleanString(type, 50) || "JUMA",
         city: cleanString(city, 100) || "Niamey",
-        village: cleanString(village, 100),
+        village:
+          auth.context.role !== "ADMIN" && auth.context.village
+            ? auth.context.village
+            : cleanString(village, 100),
         capacity: Math.round(parsePositiveNumber(capacity) ?? 100),
         has_water_well: Boolean(hasWaterWell),
         has_solar_power: Boolean(hasSolarPower),

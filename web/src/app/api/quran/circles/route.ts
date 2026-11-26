@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, resolveOrganizationId } from "@/infrastructure/supabase/auth";
+import {
+  requireAuth,
+  resolveOrganizationId,
+  resolveVillageMosqueIds,
+} from "@/infrastructure/supabase/auth";
 
-// جلب حلقات القرآن الكريم
+// جلب حلقات القرآن الكريم (مع عزل القرية لغير الآدمن)
 export async function GET(req: NextRequest) {
   const auth = await requireAuth(undefined, req);
   if (!auth.ok) return auth.response;
@@ -9,6 +13,11 @@ export async function GET(req: NextRequest) {
   const { supabase, organizationId } = auth.context;
 
   try {
+    const villageMosqueIds = await resolveVillageMosqueIds(auth.context);
+    if (villageMosqueIds !== null && villageMosqueIds.length === 0) {
+      return NextResponse.json({ circles: [] });
+    }
+
     let query = supabase
       .from("quran_circles")
       .select("*, mosques(name), mosque_staff(full_name)")
@@ -16,6 +25,9 @@ export async function GET(req: NextRequest) {
 
     if (organizationId) {
       query = query.eq("organization_id", organizationId);
+    }
+    if (villageMosqueIds !== null) {
+      query = query.in("mosque_id", villageMosqueIds);
     }
 
     const { data: circles, error } = await query;

@@ -1,6 +1,10 @@
 import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, resolveOrganizationId } from "@/infrastructure/supabase/auth";
+import {
+  requireAuth,
+  resolveOrganizationId,
+  resolveVillageMosqueIds,
+} from "@/infrastructure/supabase/auth";
 import {
   cleanString,
   isValidUuid,
@@ -15,6 +19,11 @@ export async function GET(req: NextRequest) {
   const { supabase, organizationId } = auth.context;
 
   try {
+    const villageMosqueIds = await resolveVillageMosqueIds(auth.context);
+    if (villageMosqueIds !== null && villageMosqueIds.length === 0) {
+      return NextResponse.json({ donations: [] });
+    }
+
     let query = supabase
       .from("donations")
       .select("*")
@@ -23,6 +32,9 @@ export async function GET(req: NextRequest) {
 
     if (organizationId) {
       query = query.eq("organization_id", organizationId);
+    }
+    if (villageMosqueIds !== null) {
+      query = query.in("mosque_id", villageMosqueIds);
     }
 
     const { data: donations, error } = await query;

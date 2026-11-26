@@ -5,7 +5,7 @@ export async function GET() {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const { supabase, user, role } = auth.context;
+  const { supabase, user, role, village } = auth.context;
   const isAdmin = role === "ADMIN";
 
   try {
@@ -16,7 +16,14 @@ export async function GET() {
 
     // عزل صارم للبيانات: القرية ترى بياناتها فقط، والآدمن يرى جميع القرى
     if (!isAdmin) {
-      query = query.eq("owner_user_id", user.id);
+      const safeVillage = village?.replace(/[,%*()]/g, "").trim();
+      if (safeVillage) {
+        query = query.or(
+          `owner_user_id.eq.${user.id},section_name.ilike.%${safeVillage}%`
+        );
+      } else {
+        query = query.eq("owner_user_id", user.id);
+      }
     }
 
     const { data, error } = await query;
