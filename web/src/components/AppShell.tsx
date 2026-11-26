@@ -41,6 +41,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState<string>("mosques");
+  const [authInfo, setAuthInfo] = useState<{
+    authenticated: boolean;
+    role?: string;
+    village?: string | null;
+    email?: string;
+  }>({ authenticated: false });
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (active && data) setAuthInfo(data);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [pathname]);
 
   useEffect(() => {
     if (pathname !== "/") return;
@@ -68,28 +87,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const activeTab = pathname === "/" ? currentTab : null;
 
+  const activeRole = authInfo.authenticated ? authInfo.role || "VIEWER" : null;
+  const canAccess = (roles?: string[]) => {
+    if (!roles || roles.length === 0) return true;
+    if (!activeRole) return false;
+    if (activeRole === "ADMIN") return true;
+    return roles.includes(activeRole);
+  };
+
   const coreNavItems = [
     { id: "mosques", label: t.nav.mosques, icon: Building2 },
-    { id: "quran", label: t.nav.quran, icon: BookOpen },
-    { id: "marriage", label: t.nav.marriage, icon: HeartHandshake },
-    { id: "sync", label: t.nav.sync, icon: RefreshCw },
-  ];
+    { id: "quran", label: t.nav.quran, icon: BookOpen, roles: ["ADMIN", "IMAM", "SCHOLAR", "VIEWER"] },
+    { id: "marriage", label: t.nav.marriage, icon: HeartHandshake, roles: ["ADMIN", "IMAM"] },
+    { id: "sync", label: t.nav.sync, icon: RefreshCw, roles: ["ADMIN", "IMAM", "INSPECTOR", "SCHOLAR", "ACCOUNTANT"] },
+  ].filter((item) => canAccess(item.roles));
 
   const moduleLinks = [
     { href: "/dashboard", label: t.sidebar.dashboard, icon: LayoutDashboard, color: "text-emerald-400" },
-    { href: "/mosques/maintenance", label: t.sidebar.maintenance, icon: Building2, color: "text-emerald-400" },
-    { href: "/mosques/security", label: t.sidebar.security, icon: Car, color: "text-blue-400" },
-    { href: "/mosques/funerals", label: t.sidebar.funerals, icon: Users, color: "text-purple-400" },
-    { href: "/scholars/fatwa", label: t.sidebar.scholars, icon: BookOpen, color: "text-amber-400" },
-    { href: "/mosques/library", label: t.sidebar.library, icon: Library, color: "text-teal-400" },
-    { href: "/finance/zakat", label: t.sidebar.zakat, icon: Scale, color: "text-emerald-400" },
+    { href: "/mosques/maintenance", label: t.sidebar.maintenance, icon: Building2, color: "text-emerald-400", roles: ["ADMIN", "IMAM", "INSPECTOR"] },
+    { href: "/mosques/security", label: t.sidebar.security, icon: Car, color: "text-blue-400", roles: ["ADMIN", "IMAM", "INSPECTOR"] },
+    { href: "/mosques/funerals", label: t.sidebar.funerals, icon: Users, color: "text-purple-400", roles: ["ADMIN", "IMAM", "INSPECTOR"] },
+    { href: "/scholars/fatwa", label: t.sidebar.scholars, icon: BookOpen, color: "text-amber-400", roles: ["ADMIN", "SCHOLAR", "IMAM"] },
+    { href: "/mosques/library", label: t.sidebar.library, icon: Library, color: "text-teal-400", roles: ["ADMIN", "IMAM", "SCHOLAR", "INSPECTOR"] },
+    { href: "/finance/zakat", label: t.sidebar.zakat, icon: Scale, color: "text-emerald-400", roles: ["ADMIN", "ACCOUNTANT"] },
     { href: "/portal/project", label: t.sidebar.donorPortal, icon: Droplet, color: "text-cyan-400" },
     { href: "/magazine", label: t.sidebar.magazine, icon: BookMarked, color: "text-rose-400" },
     { href: "/bilan-2026", label: t.sidebar.bilan2026, icon: ClipboardList, color: "text-emerald-400" },
-    { href: "/commissions", label: t.sidebar.commissions2026, icon: Award, color: "text-amber-400" },
-    { href: "/access-control", label: t.sidebar.accessControl, icon: KeyRound, color: "text-rose-400" },
-    { href: "/settings", label: t.sidebar.settings, icon: Settings, color: "text-cyan-400" },
-  ];
+    { href: "/commissions", label: t.sidebar.commissions2026, icon: Award, color: "text-amber-400", roles: ["ADMIN", "IMAM", "SCHOLAR", "INSPECTOR"] },
+    { href: "/access-control", label: t.sidebar.accessControl, icon: KeyRound, color: "text-rose-400", roles: ["ADMIN"] },
+    { href: "/settings", label: t.sidebar.settings, icon: Settings, color: "text-cyan-400", roles: ["ADMIN"] },
+  ].filter((mod) => canAccess(mod.roles));
 
   const activeTitle =
     coreNavItems.find((i) => i.id === activeTab)?.label ||
@@ -225,7 +252,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <div className="p-3 border-t border-slate-800/80 shrink-0">
+        <div className="p-3 border-t border-slate-800/80 shrink-0 space-y-2">
+          {authInfo.authenticated && !sidebarCollapsed && (
+            <div className="px-3 py-2 rounded-xl bg-slate-950/70 border border-slate-800/80 text-[11px]">
+              <div className="font-bold text-white truncate">{authInfo.email}</div>
+              <div className="text-emerald-400 font-semibold truncate">
+                {authInfo.role}
+                {authInfo.village ? ` • ${authInfo.village}` : ""}
+              </div>
+            </div>
+          )}
           <Link
             href="/login"
             title={t.sidebar.loginPortal}

@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   try {
     let query = supabase
       .from("mosques")
-      .select("*, organizations(name, country)")
+      .select("*, organizations(name, country), mosque_staff(full_name, role)")
       .order("created_at", { ascending: false });
 
     if (organizationId) {

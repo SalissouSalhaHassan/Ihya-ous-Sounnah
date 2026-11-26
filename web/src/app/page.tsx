@@ -185,16 +185,20 @@ export default function HomePage() {
     });
   }, []);
 
-  // جلب البيانات من Supabase
+  // جلب البيانات عبر مسارات الـ API المحمية والمعزولة حسب القرية والمنظمة
   const fetchData = async () => {
     try {
-      // 1. المساجد
-      const { data: mData } = await supabase
-        .from("mosques")
-        .select("*, mosque_staff(full_name, role)")
-        .order("created_at", { ascending: false });
+      const [mRes, cRes, pRes, nRes] = await Promise.all([
+        fetch("/api/mosques"),
+        fetch("/api/quran/circles"),
+        fetch("/api/quran/progress"),
+        fetch("/api/marriage"),
+      ]);
 
-      if (mData && mData.length > 0) {
+      // 1. المساجد
+      if (mRes.ok) {
+        const mJson = await mRes.json();
+        const mData = Array.isArray(mJson?.mosques) ? mJson.mosques : [];
         interface MosqueRow {
           id: string;
           name: string;
@@ -218,15 +222,14 @@ export default function HomePage() {
             imam: m.mosque_staff?.find((s) => s.role === "IMAM")?.full_name || "معتمد لدى الهيئة",
           }))
         );
+      } else if (mRes.status === 401 || mRes.status === 403) {
+        setMosquesList([]);
       }
 
       // 2. حلقات القرآن
-      const { data: cData } = await supabase
-        .from("quran_circles")
-        .select("*, mosques(name), mosque_staff(full_name)")
-        .order("created_at", { ascending: false });
-
-      if (cData && cData.length > 0) {
+      if (cRes.ok) {
+        const cJson = await cRes.json();
+        const cData = Array.isArray(cJson?.circles) ? cJson.circles : [];
         interface CircleRow {
           id: string;
           name: string;
@@ -245,27 +248,24 @@ export default function HomePage() {
             teacherName: c.mosque_staff?.full_name || "الشيخ المحفظ",
           }))
         );
+      } else if (cRes.status === 401 || cRes.status === 403) {
+        setCirclesList([]);
       }
 
       // 3. سجل التسميع
-      const { data: pData } = await supabase
-        .from("quran_progress")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      if (pData && pData.length > 0) {
-        setProgressList(pData);
+      if (pRes.ok) {
+        const pJson = await pRes.json();
+        setProgressList(Array.isArray(pJson?.progress) ? pJson.progress : []);
+      } else if (pRes.status === 401 || pRes.status === 403) {
+        setProgressList([]);
       }
 
       // 4. عقود الزواج الشرعية
-      const { data: nData } = await supabase
-        .from("marriage_contracts")
-        .select("*, mosques(name), mosque_staff(full_name)")
-        .order("created_at", { ascending: false });
-
-      if (nData && nData.length > 0) {
-        setMarriagesList(nData);
+      if (nRes.ok) {
+        const nJson = await nRes.json();
+        setMarriagesList(Array.isArray(nJson?.contracts) ? nJson.contracts : []);
+      } else if (nRes.status === 401 || nRes.status === 403) {
+        setMarriagesList([]);
       }
     } catch (e) {
       console.log("Cached load:", e);
