@@ -341,6 +341,23 @@ export const MAINTENANCE_DICT: Record<
     priorityLabel: string;
     cancel: string;
     submit: string;
+    statTotal: string;
+    statCritical: string;
+    statInProgress: string;
+    statResolved: string;
+    filterAll: string;
+    filterCritical: string;
+    filterInProgress: string;
+    filterPending: string;
+    filterResolved: string;
+    searchPlaceholder: string;
+    logTitle: string;
+    matchingCount: string;
+    photosLabel: string;
+    estCostLabel: string;
+    techLabel: string;
+    viewReportBtn: string;
+    villageScopeBanner: string;
   }
 > = {
   ar: {
@@ -359,6 +376,23 @@ export const MAINTENANCE_DICT: Record<
     priorityLabel: "درجة الأولوية",
     cancel: "إلغاء",
     submit: "إرسال التذكرة",
+    statTotal: "إجمالي بلاغات هذا الشهر",
+    statCritical: "أعطال حرجة قبل الجمعة",
+    statInProgress: "مشاريع صيانة قيد التنفيذ",
+    statResolved: "تم إنجازها بنجاح",
+    filterAll: "كافة التذاكر",
+    filterCritical: "حرجة قبل الجمعة",
+    filterInProgress: "قيد التنفيذ",
+    filterPending: "بانتظار الميزانية",
+    filterResolved: "مكتملة",
+    searchPlaceholder: "بحث بالمسجد أو العطل أو الحي...",
+    logTitle: "سجل التذاكر والزيارات الميدانية للمفتشين",
+    matchingCount: "بلاغات مطابقة",
+    photosLabel: "صور توثيق (قبل وبعد)",
+    estCostLabel: "التكلفة التقديرية:",
+    techLabel: "المكلف:",
+    viewReportBtn: "عرض التقرير والصور",
+    villageScopeBanner: "سجلات الصيانة المعزولة للقرية:",
   },
   fr: {
     title: "Maintenance & Équipements des Mosquées",
@@ -376,14 +410,31 @@ export const MAINTENANCE_DICT: Record<
     priorityLabel: "Priorité",
     cancel: "Annuler",
     submit: "Envoyer le ticket",
+    statTotal: "Total des tickets ce mois",
+    statCritical: "Pannes critiques (avant Vendredi)",
+    statInProgress: "Travaux en cours",
+    statResolved: "Résolus avec succès",
+    filterAll: "Tous les tickets",
+    filterCritical: "Critiques",
+    filterInProgress: "En cours",
+    filterPending: "En attente budget",
+    filterResolved: "Terminés",
+    searchPlaceholder: "Rechercher par mosquée, panne ou quartier...",
+    logTitle: "Journal des tickets et visites d'inspection",
+    matchingCount: "tickets correspondants",
+    photosLabel: "photos (avant / après)",
+    estCostLabel: "Coût estimé :",
+    techLabel: "Responsable :",
+    viewReportBtn: "Voir rapport & photos",
+    villageScopeBanner: "Tickets isolés pour le village :",
   },
   ha: {
     title: "Gyara da Kula da Kayan Masallatai",
     badge: "Tsarin Rahoton Gyara",
     subtitle: "Bibiyar matsalar lasifika, hasken rana, famfo da duba masallatai",
-    newTicketBtn: "Bude sabon rahoton gyara",
+    newTicketBtn: "Buɗe sabon rahoton gyara",
     ticketsTitle: "Rahotannin gyara da ke gudana",
-    statusOpen: "A bude",
+    statusOpen: "A buɗe",
     statusInProgress: "Ana gyara",
     statusResolved: "An gyara",
     markResolved: "Tabbatar an gyara",
@@ -393,6 +444,23 @@ export const MAINTENANCE_DICT: Record<
     priorityLabel: "Gaggawa",
     cancel: "Fasa",
     submit: "Tura rahoto",
+    statTotal: "Jimillar rahotanni a wannan watan",
+    statCritical: "Matsalolin gaggawa kafin Juma'a",
+    statInProgress: "Ayyukan gyara da ke gudana",
+    statResolved: "An kammala cikin nasara",
+    filterAll: "Dukkan rahotanni",
+    filterCritical: "Na gaggawa",
+    filterInProgress: "Ana gyara",
+    filterPending: "Ana jiran kasafi",
+    filterResolved: "An kammala",
+    searchPlaceholder: "Nemo da sunan masallaci ko matsala...",
+    logTitle: "Rijistar rahotanni da ziyarar dubawa",
+    matchingCount: "rahotanni da suka dace",
+    photosLabel: "hotunan shaida (kafin/bayan)",
+    estCostLabel: "Kudin da ake tsammani:",
+    techLabel: "Mai kula:",
+    viewReportBtn: "Duba rahoto da hotuna",
+    villageScopeBanner: "Rahotannin gyara na ƙauye:",
   },
 };
 
@@ -406,6 +474,21 @@ export const SECURITY_DICT: Record<
     tabIncidents: string;
     tabLost: string;
     searchPlaceholder: string;
+    sosBtn: string;
+    addVehicleBtn: string;
+    addIncidentBtn: string;
+    addLostBtn: string;
+    gateOfflineTitle: string;
+    gateOfflineDesc: string;
+    parkedCountLabel: string;
+    vehicleTypeLabel: string;
+    ownerLabel: string;
+    entryTimeLabel: string;
+    phoneLabel: string;
+    qrTicketBtn: string;
+    parkedStatus: string;
+    exitedStatus: string;
+    villageScopeBanner: string;
   }
 > = {
   ar: {
@@ -416,6 +499,21 @@ export const SECURITY_DICT: Record<
     tabIncidents: "البلاغات الأمنية",
     tabLost: "المفقودات والأمانات",
     searchPlaceholder: "بحث برقم اللوحة أو الغرض...",
+    sosBtn: "إرسال نداء طوارئ (SOS)",
+    addVehicleBtn: "تسجيل دخول مركبة جديدة",
+    addIncidentBtn: "تسجيل بلاغ أمني جديد",
+    addLostBtn: "تسجيل مفقود جديد",
+    gateOfflineTitle: "نظام حارس البوابة الذكي (Gate Scanner) يعمل أوفلاين",
+    gateOfflineDesc: "مسح لوحات المركبات وتوليد بطاقات الوقوف مستمر حتى في انقطاع شبكة المسجد كلياً",
+    parkedCountLabel: "مركبة بالموقف الآن",
+    vehicleTypeLabel: "نوع المركبة:",
+    ownerLabel: "صاحب المركبة:",
+    entryTimeLabel: "وقت الدخول:",
+    phoneLabel: "هاتف المصلي:",
+    qrTicketBtn: "تذكرة QR",
+    parkedStatus: "متواجدة بأمان في الموقف",
+    exitedStatus: "تم التحقق والمغادرة بسلام",
+    villageScopeBanner: "سجلات الأمن والمواقف للقرية:",
   },
   fr: {
     title: "Sécurité & Gestion des Parkings",
@@ -425,6 +523,21 @@ export const SECURITY_DICT: Record<
     tabIncidents: "Incidents de sécurité",
     tabLost: "Objets trouvés",
     searchPlaceholder: "Rechercher par plaque ou objet...",
+    sosBtn: "Alerte d'urgence (SOS)",
+    addVehicleBtn: "Enregistrer un véhicule",
+    addIncidentBtn: "Signaler un incident",
+    addLostBtn: "Enregistrer un objet trouvé",
+    gateOfflineTitle: "Contrôle d'accès Gate Scanner (Mode Hors-ligne)",
+    gateOfflineDesc: "Le scan des plaques et la génération de tickets QR fonctionnent même sans connexion Internet",
+    parkedCountLabel: "véhicule(s) stationné(s)",
+    vehicleTypeLabel: "Type de véhicule :",
+    ownerLabel: "Propriétaire :",
+    entryTimeLabel: "Heure d'entrée :",
+    phoneLabel: "Téléphone :",
+    qrTicketBtn: "Ticket QR",
+    parkedStatus: "Stationné en sécurité",
+    exitedStatus: "Vérifié & Sorti",
+    villageScopeBanner: "Sécurité & parking isolés pour :",
   },
   ha: {
     title: "Tsaron Masallaci da Ajiye Motoci",
@@ -434,6 +547,21 @@ export const SECURITY_DICT: Record<
     tabIncidents: "Rahoton Tsaro",
     tabLost: "Kayan da suka Bata",
     searchPlaceholder: "Nemo da lambar mota ko kaya...",
+    sosBtn: "Tura kiran gaggawa (SOS)",
+    addVehicleBtn: "Yi rijistar shigar mota",
+    addIncidentBtn: "Yi rijistar rahoton tsaro",
+    addLostBtn: "Yi rijistar abin da ya ɓata",
+    gateOfflineTitle: "Tsarin Gate Scanner yana aiki ba tare da net ba",
+    gateOfflineDesc: "Ana ci gaba da duba lambobin motoci da bayar da katin QR ko da babu intanet",
+    parkedCountLabel: "motoci a wurin ajiya yanzu",
+    vehicleTypeLabel: "Nau'in abin hawa:",
+    ownerLabel: "Mai abin hawa:",
+    entryTimeLabel: "Lokacin shiga:",
+    phoneLabel: "Lambar waya:",
+    qrTicketBtn: "Katin QR",
+    parkedStatus: "Yana ajiye lafiya",
+    exitedStatus: "An duba kuma ya fita",
+    villageScopeBanner: "Bayanan tsaro na ƙauyen:",
   },
 };
 

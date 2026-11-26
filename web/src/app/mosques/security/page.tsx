@@ -182,36 +182,72 @@ export default function MosqueSecurityPage() {
     },
   ]);
 
-  // LocalStorage Persistence
+  const [assignedVillage, setAssignedVillage] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const storageSuffix = !isAdmin && assignedVillage
+    ? `_${assignedVillage.toLowerCase().replace(/\s+/g, "_")}`
+    : "";
+
+  // LocalStorage Persistence + Multi-Village Isolation
   useEffect(() => {
-    const id = setTimeout(() => {
+    let active = true;
+    const load = async () => {
+      let suffix = "";
       try {
-        const v = localStorage.getItem("manara_security_vehicles");
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const me = await res.json();
+          if (me?.authenticated) {
+            const admin = me.role === "ADMIN";
+            if (active) setIsAdmin(admin);
+            const village = !admin && me.village ? String(me.village).trim() : null;
+            if (active) setAssignedVillage(village);
+            if (village) {
+              suffix = `_${village.toLowerCase().replace(/\s+/g, "_")}`;
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      if (!active) return;
+      try {
+        const v = localStorage.getItem(`manara_security_vehicles${suffix}`);
         if (v) setVehicles(JSON.parse(v));
-        const inc = localStorage.getItem("manara_security_incidents");
+        else if (suffix) setVehicles([]);
+
+        const inc = localStorage.getItem(`manara_security_incidents${suffix}`);
         if (inc) setIncidents(JSON.parse(inc));
-        const l = localStorage.getItem("manara_security_lost");
+        else if (suffix) setIncidents([]);
+
+        const l = localStorage.getItem(`manara_security_lost${suffix}`);
         if (l) setLostItems(JSON.parse(l));
+        else if (suffix) setLostItems([]);
       } catch (e) {
         console.warn("Storage load error", e);
       }
-    }, 0);
-    return () => clearTimeout(id);
+    };
+    void load();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const saveVehicles = (list: Vehicle[]) => {
     setVehicles(list);
-    try { localStorage.setItem("manara_security_vehicles", JSON.stringify(list)); } catch (e) {}
+    try { localStorage.setItem(`manara_security_vehicles${storageSuffix}`, JSON.stringify(list)); } catch {}
   };
 
   const saveIncidents = (list: Incident[]) => {
     setIncidents(list);
-    try { localStorage.setItem("manara_security_incidents", JSON.stringify(list)); } catch (e) {}
+    try { localStorage.setItem(`manara_security_incidents${storageSuffix}`, JSON.stringify(list)); } catch {}
   };
 
   const saveLostItems = (list: LostItem[]) => {
     setLostItems(list);
-    try { localStorage.setItem("manara_security_lost", JSON.stringify(list)); } catch (e) {}
+    try { localStorage.setItem(`manara_security_lost${storageSuffix}`, JSON.stringify(list)); } catch {}
   };
 
   // حالة النوافذ المنبثقة (Modals)
@@ -447,10 +483,17 @@ export default function MosqueSecurityPage() {
               className="px-4 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-900/40 transition flex items-center gap-2 active:scale-95 cursor-pointer ring-2 ring-rose-500/30 animate-pulse"
             >
               <AlertTriangle className="w-4 h-4" />
-              <span>إرسال نداء طوارئ (SOS)</span>
+              <span>{dict.sosBtn}</span>
             </button>
           </div>
         </div>
+
+        {!isAdmin && assignedVillage && (
+          <div className="p-3 rounded-2xl bg-slate-900/70 border border-emerald-500/30 text-xs font-bold text-emerald-300 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{dict.villageScopeBanner} {assignedVillage}</span>
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="flex gap-2 p-1.5 bg-slate-900 rounded-2xl border border-slate-800">
@@ -502,7 +545,7 @@ export default function MosqueSecurityPage() {
                 className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-2 cursor-pointer active:scale-95"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
-                <span>تسجيل دخول مركبة جديدة</span>
+                <span>{dict.addVehicleBtn}</span>
               </button>
             )}
             {activeTab === "incidents" && (
@@ -511,7 +554,7 @@ export default function MosqueSecurityPage() {
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-2 cursor-pointer active:scale-95"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
-                <span>تسجيل بلاغ أمني جديد</span>
+                <span>{dict.addIncidentBtn}</span>
               </button>
             )}
             {activeTab === "lost_found" && (
@@ -520,7 +563,7 @@ export default function MosqueSecurityPage() {
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-2 cursor-pointer active:scale-95"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
-                <span>تسجيل مفقود جديد</span>
+                <span>{dict.addLostBtn}</span>
               </button>
             )}
           </div>
@@ -537,13 +580,13 @@ export default function MosqueSecurityPage() {
                   <WifiOff className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-sm">نظام حارس البوابة الذكي (Gate Scanner) يعمل أوفلاين</h3>
-                  <p className="text-xs text-slate-400">مسح لوحات المركبات وتوليد بطاقات الوقوف مستمر حتى في انقطاع شبكة المسجد كلياً</p>
+                  <h3 className="font-bold text-white text-sm">{dict.gateOfflineTitle}</h3>
+                  <p className="text-xs text-slate-400">{dict.gateOfflineDesc}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono text-emerald-400 font-bold bg-emerald-950/60 px-3 py-1.5 rounded-xl border border-emerald-800/40">
-                  {vehicles.filter(v => v.status === "PARKED").length} مركبة بالموقف الآن
+                  {vehicles.filter(v => v.status === "PARKED").length} {dict.parkedCountLabel}
                 </span>
               </div>
             </div>
@@ -574,19 +617,19 @@ export default function MosqueSecurityPage() {
 
                     <div className="space-y-1.5 text-xs">
                       <div className="text-slate-400 flex justify-between">
-                        <span>نوع المركبة:</span>
+                        <span>{dict.vehicleTypeLabel}</span>
                         <strong className="text-slate-200">{v.type}</strong>
                       </div>
                       <div className="text-slate-400 flex justify-between">
-                        <span>صاحب المركبة:</span>
+                        <span>{dict.ownerLabel}</span>
                         <strong className="text-slate-200">{v.ownerName}</strong>
                       </div>
                       <div className="text-slate-400 flex justify-between">
-                        <span>وقت الدخول:</span>
+                        <span>{dict.entryTimeLabel}</span>
                         <strong className="text-slate-200">{v.entryTime}</strong>
                       </div>
                       <div className="text-slate-400 flex justify-between">
-                        <span>هاتف المصلي:</span>
+                        <span>{dict.phoneLabel}</span>
                         <strong className="text-emerald-400 font-mono" dir="ltr">{v.ownerPhone}</strong>
                       </div>
                       {v.notes && (
@@ -608,7 +651,7 @@ export default function MosqueSecurityPage() {
                       title="انقر لتغيير الحالة (دخول / خروج)"
                     >
                       <LogOut className="w-3 h-3" />
-                      <span>{v.statusLabel}</span>
+                      <span>{v.status === "PARKED" ? dict.parkedStatus : dict.exitedStatus}</span>
                     </button>
 
                     <button 
@@ -619,7 +662,7 @@ export default function MosqueSecurityPage() {
                       className="text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1 px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg border border-rose-500/20 cursor-pointer transition active:scale-95"
                     >
                       <QrCode className="w-3.5 h-3.5" /> 
-                      <span>تذكرة QR</span>
+                      <span>{dict.qrTicketBtn}</span>
                     </button>
                   </div>
                 </div>

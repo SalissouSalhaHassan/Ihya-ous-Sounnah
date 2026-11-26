@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Building2, 
   Wrench, 
@@ -29,6 +29,8 @@ import { MAINTENANCE_DICT } from "@/lib/module-i18n";
 export default function MaintenanceTicketsPage() {
   const { currentLocale, isRtl } = useLocale();
   const dict = MAINTENANCE_DICT[currentLocale];
+  const [assignedVillage, setAssignedVillage] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // تذاكر الصيانة الميدانية
   const [tickets, setTickets] = useState([
@@ -110,6 +112,28 @@ export default function MaintenanceTicketsPage() {
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.authenticated) return;
+        const admin = data.role === "ADMIN";
+        setIsAdmin(admin);
+        const village = !admin && data.village ? String(data.village).trim() : null;
+        setAssignedVillage(village);
+        if (village) {
+          const storageKey = `manara_maintenance_tickets_${village.toLowerCase().replace(/\s+/g, "_")}`;
+          try {
+            const saved = localStorage.getItem(storageKey);
+            setTickets(saved ? JSON.parse(saved) : []);
+          } catch {
+            setTickets([]);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const filteredTickets = tickets.filter((t) => {
     const matchesFilter = 
       filterStatus === "ALL" ? true :
@@ -164,18 +188,24 @@ export default function MaintenanceTicketsPage() {
             className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-2 active:scale-95 cursor-pointer ring-2 ring-amber-400/30"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
-            {dict.newTicketBtn}
-            رفع بلاغ صيانة جديد
+            <span>{dict.newTicketBtn}</span>
           </button>
         </div>
+
+        {!isAdmin && assignedVillage && (
+          <div className="p-3 rounded-2xl bg-slate-900/70 border border-emerald-500/30 text-xs font-bold text-emerald-300 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{dict.villageScopeBanner} {assignedVillage}</span>
+          </div>
+        )}
 
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: "إجمالي بلاغات هذا الشهر", value: (tickets.length + 25).toString(), icon: Wrench, color: "text-amber-400" },
-            { label: "أعطال حرجة قبل الجمعة", value: tickets.filter(t => t.priority === "CRITICAL").length.toString(), icon: AlertTriangle, color: "text-rose-400" },
-            { label: "مشاريع صيانة قيد التنفيذ", value: tickets.filter(t => t.status === "IN_PROGRESS").length.toString(), icon: Clock, color: "text-cyan-400" },
-            { label: "تم إنجازها بنجاح", value: tickets.filter(t => t.status === "RESOLVED").length.toString(), icon: CheckCircle2, color: "text-emerald-400" },
+            { label: dict.statTotal, value: tickets.length.toString(), icon: Wrench, color: "text-amber-400" },
+            { label: dict.statCritical, value: tickets.filter(t => t.priority === "CRITICAL").length.toString(), icon: AlertTriangle, color: "text-rose-400" },
+            { label: dict.statInProgress, value: tickets.filter(t => t.status === "IN_PROGRESS").length.toString(), icon: Clock, color: "text-cyan-400" },
+            { label: dict.statResolved, value: tickets.filter(t => t.status === "RESOLVED").length.toString(), icon: CheckCircle2, color: "text-emerald-400" },
           ].map((stat, idx) => (
             <div key={idx} className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl flex items-center gap-4 hover:border-slate-700 transition">
               <stat.icon className={`w-8 h-8 ${stat.color}`} />
@@ -187,15 +217,15 @@ export default function MaintenanceTicketsPage() {
           ))}
         </div>
 
-        {/* Tickets Filter & Search Bar - ميزة إضافية ذكية */}
+        {/* Tickets Filter & Search Bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/50 p-3 rounded-2xl border border-slate-800/80">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
             {[
-              { id: "ALL", label: "كافة التذاكر", count: tickets.length },
-              { id: "CRITICAL", label: "حرجة قبل الجمعة", count: tickets.filter(t => t.priority === "CRITICAL").length },
-              { id: "IN_PROGRESS", label: "قيد التنفيذ", count: tickets.filter(t => t.status === "IN_PROGRESS").length },
-              { id: "PENDING_APPROVAL", label: "بانتظار الميزانية", count: tickets.filter(t => t.status === "PENDING_APPROVAL").length },
-              { id: "RESOLVED", label: "مكتملة", count: tickets.filter(t => t.status === "RESOLVED").length },
+              { id: "ALL", label: dict.filterAll, count: tickets.length },
+              { id: "CRITICAL", label: dict.filterCritical, count: tickets.filter(t => t.priority === "CRITICAL").length },
+              { id: "IN_PROGRESS", label: dict.filterInProgress, count: tickets.filter(t => t.status === "IN_PROGRESS").length },
+              { id: "PENDING_APPROVAL", label: dict.filterPending, count: tickets.filter(t => t.status === "PENDING_APPROVAL").length },
+              { id: "RESOLVED", label: dict.filterResolved, count: tickets.filter(t => t.status === "RESOLVED").length },
             ].map((f) => (
               <button
                 key={f.id}
@@ -221,7 +251,7 @@ export default function MaintenanceTicketsPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث بالمسجد أو العطل أو الحي..."
+              placeholder={dict.searchPlaceholder}
               className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 w-full sm:w-56"
             />
           </div>
@@ -232,10 +262,10 @@ export default function MaintenanceTicketsPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Clock className="w-5 h-5 text-amber-400" />
-              سجل التذاكر والزيارات الميدانية للمفتشين
+              {dict.logTitle}
             </h2>
             <span className="text-xs text-amber-400 bg-amber-950/60 px-3 py-1 rounded-full border border-amber-800/40 font-bold">
-              {filteredTickets.length} بلاغات مطابقة
+              {filteredTickets.length} {dict.matchingCount}
             </span>
           </div>
 
@@ -275,13 +305,13 @@ export default function MaintenanceTicketsPage() {
 
                   <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 pt-1">
                     <span className="flex items-center gap-1">
-                      <Camera className="w-3.5 h-3.5 text-cyan-400" /> {ticket.photosCount} صور توثيق (قبل وبعد)
+                      <Camera className="w-3.5 h-3.5 text-cyan-400" /> {ticket.photosCount} {dict.photosLabel}
                     </span>
                     <span className="flex items-center gap-1">
-                      <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> التكلفة التقديرية: <strong className="text-white">{ticket.estimatedCost}</strong>
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> {dict.estCostLabel} <strong className="text-white">{ticket.estimatedCost}</strong>
                     </span>
                     <span className="text-slate-400">
-                      المكلف: <strong className="text-slate-200">{ticket.technician}</strong>
+                      {dict.techLabel} <strong className="text-slate-200">{ticket.technician}</strong>
                     </span>
                   </div>
                 </div>
