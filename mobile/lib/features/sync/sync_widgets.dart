@@ -35,7 +35,7 @@ class SyncHeaderBanner extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: InkWell(
-              onTap: () => showPendingAuditDialog(context),
+              onTap: () => showPendingAuditDialog(context, locale),
               borderRadius: BorderRadius.circular(8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,8 +79,9 @@ class SyncHeaderBanner extends StatelessWidget {
   }
 }
 
-void showPendingAuditDialog(BuildContext context) {
+void showPendingAuditDialog(BuildContext context, [String locale = 'ar']) {
   final pendingItems = OfflineSyncEngine.getPendingItems();
+  String t(String key) => AppTranslations.get(key, locale);
 
   showModalBottomSheet(
     context: context,
@@ -98,34 +99,34 @@ void showPendingAuditDialog(BuildContext context) {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.history_toggle_off, color: Color(0xFF34D399)),
-                  SizedBox(width: 8),
+                  const Icon(Icons.history_toggle_off, color: Color(0xFF34D399)),
+                  const SizedBox(width: 8),
                   Text(
-                    'سجل العمليات الميدانية المعلقة',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    t('pendingAuditTitle'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ],
               ),
               Text(
-                '${pendingItems.length} عمليات',
+                '${pendingItems.length} ${t('pendingAuditOps')}',
                 style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'كافة العمليات محفوظة بأمان في ذاكرة الهاتف وتنتظر عودة الشبكة للمزامنة التلقائية مع السيرفر.',
-            style: TextStyle(color: Colors.white60, fontSize: 11),
+          Text(
+            t('pendingAuditDesc'),
+            style: const TextStyle(color: Colors.white60, fontSize: 11),
           ),
           const Divider(color: Colors.white24, height: 24),
           Expanded(
             child: pendingItems.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'لا توجد عمليات معلقة. كافة السجلات متزامنة بنجاح! ✅',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                      t('pendingAuditEmpty'),
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                   )
                 : ListView.separated(
@@ -170,9 +171,9 @@ void showPendingAuditDialog(BuildContext context) {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Text(
-                              '⏳ معلقة',
-                              style: TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.bold),
+                            Text(
+                              t('pendingStatus'),
+                              style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),

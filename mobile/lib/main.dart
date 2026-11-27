@@ -390,9 +390,9 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _buildSyncBanner(),
           const SizedBox(height: 20),
-          const Text(
-            'قطاعات المنظومة الميدانية',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          Text(
+            _t('fieldSectors'),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 12),
           GridView.count(
@@ -405,35 +405,35 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               ManaraNavCard(
                 title: _t('quranTitle'),
-                subtitle: 'تسميع وحفظ يومي',
+                subtitle: _t('subQuran'),
                 icon: Icons.menu_book,
                 color: const Color(0xFF2DD4BF),
                 onTap: () => setState(() => _currentIndex = 1),
               ),
               ManaraNavCard(
                 title: _t('nikahTitle'),
-                subtitle: 'توثيق شرعي وشهادات',
+                subtitle: _t('subNikah'),
                 icon: Icons.favorite,
                 color: const Color(0xFFFB7185),
                 onTap: () => setState(() => _currentIndex = 2),
               ),
               ManaraNavCard(
                 title: _t('mosquesTitle'),
-                subtitle: 'حصر بيوت الله والطاقة',
+                subtitle: _t('subMosques'),
                 icon: Icons.mosque,
                 color: const Color(0xFF34D399),
                 onTap: () => setState(() => _currentIndex = 3),
               ),
               ManaraNavCard(
                 title: _t('securityTitle'),
-                subtitle: 'ماسح مواقف وبوابات',
+                subtitle: _t('subSecurity'),
                 icon: Icons.security,
                 color: const Color(0xFF60A5FA),
                 onTap: () => setState(() => _currentIndex = 4),
               ),
               ManaraNavCard(
                 title: _t('funeralsTitle'),
-                subtitle: 'بث الجنائز والمقابر',
+                subtitle: _t('subFunerals'),
                 icon: Icons.notifications_active,
                 color: const Color(0xFFA855F7),
                 onTap: () => showFuneralQuickDialog(
@@ -446,7 +446,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               ManaraNavCard(
                 title: _t('fatwaTitle'),
-                subtitle: 'بنك الفتاوى والخطب',
+                subtitle: _t('subFatwa'),
                 icon: Icons.school,
                 color: const Color(0xFFFBBF24),
                 onTap: () => setState(() => _currentIndex = 5),

@@ -36,7 +36,7 @@ class SecurityTab extends StatelessWidget {
                 controller: plateController,
                 decoration: manaraFieldDecoration(
                   _t('plateNumber'),
-                  hintText: 'مثال: RN-8941-2A أو MOTO-77',
+                  hintText: _t('plateHint'),
                 ),
               ),
               const SizedBox(height: 16),
@@ -49,9 +49,9 @@ class SecurityTab extends StatelessWidget {
                 ),
                 onPressed: onSave,
                 icon: const Icon(Icons.qr_code_scanner),
-                label: const Text(
-                  'تسجيل دخول وتأمين المركبة أوفلاين',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                label: Text(
+                  _t('saveSecurityOffline'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ],
