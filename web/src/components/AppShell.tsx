@@ -25,6 +25,9 @@ import {
   KeyRound,
   Settings,
   LayoutDashboard,
+  Search,
+  ChevronDown,
+  LogOut,
 } from "lucide-react";
 import { LOCALES } from "@/lib/i18n";
 import { useLocale } from "@/lib/locale-context";
@@ -45,6 +48,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState<string>("mosques");
+  const [navSearch, setNavSearch] = useState("");
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [authInfo, setAuthInfo] = useState<{
     authenticated: boolean;
     role?: string;
@@ -115,21 +120,84 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { id: "sync", label: t.nav.sync, icon: RefreshCw, roles: ["ADMIN", "IMAM", "INSPECTOR", "SCHOLAR", "ACCOUNTANT"] },
   ].filter((item) => canAccess(item.roles));
 
-  const moduleLinks = [
-    { href: "/dashboard", label: t.sidebar.dashboard, icon: LayoutDashboard, color: "text-emerald-400" },
-    { href: "/mosques/maintenance", label: t.sidebar.maintenance, icon: Building2, color: "text-emerald-400", roles: ["ADMIN", "IMAM", "INSPECTOR"] },
-    { href: "/mosques/security", label: t.sidebar.security, icon: Car, color: "text-blue-400", roles: ["ADMIN", "IMAM", "INSPECTOR"] },
-    { href: "/mosques/funerals", label: t.sidebar.funerals, icon: Users, color: "text-purple-400", roles: ["ADMIN", "IMAM", "INSPECTOR"] },
-    { href: "/scholars/fatwa", label: t.sidebar.scholars, icon: BookOpen, color: "text-amber-400", roles: ["ADMIN", "SCHOLAR", "IMAM"] },
-    { href: "/mosques/library", label: t.sidebar.library, icon: Library, color: "text-teal-400", roles: ["ADMIN", "IMAM", "SCHOLAR", "INSPECTOR"] },
-    { href: "/finance/zakat", label: t.sidebar.zakat, icon: Scale, color: "text-emerald-400", roles: ["ADMIN", "ACCOUNTANT"] },
-    { href: "/portal/project", label: t.sidebar.donorPortal, icon: Droplet, color: "text-cyan-400" },
-    { href: "/magazine", label: t.sidebar.magazine, icon: BookMarked, color: "text-rose-400" },
-    { href: "/bilan-2026", label: t.sidebar.bilan2026, icon: ClipboardList, color: "text-emerald-400" },
-    { href: "/commissions", label: t.sidebar.commissions2026, icon: Award, color: "text-amber-400", roles: ["ADMIN", "IMAM", "SCHOLAR", "INSPECTOR"] },
-    { href: "/access-control", label: t.sidebar.accessControl, icon: KeyRound, color: "text-rose-400", roles: ["ADMIN"] },
-    { href: "/settings", label: t.sidebar.settings, icon: Settings, color: "text-cyan-400", roles: ["ADMIN", "IMAM", "INSPECTOR"] },
-  ].filter((mod) => canAccess(mod.roles));
+  const moduleGroups = [
+    {
+      id: "leadership",
+      label:
+        currentLocale === "ar"
+          ? "القيادة والتقارير"
+          : currentLocale === "ha"
+            ? "Gudanarwa da Rahotanni"
+            : "Pilotage & Rapports",
+      items: [
+        { href: "/dashboard", label: t.sidebar.dashboard, icon: LayoutDashboard, color: "text-emerald-400", bg: "bg-emerald-500/15" },
+        { href: "/bilan-2026", label: t.sidebar.bilan2026, icon: ClipboardList, color: "text-emerald-400", bg: "bg-emerald-500/15" },
+        { href: "/commissions", label: t.sidebar.commissions2026, icon: Award, color: "text-amber-400", bg: "bg-amber-500/15", roles: ["ADMIN", "IMAM", "SCHOLAR", "INSPECTOR"] },
+      ],
+    },
+    {
+      id: "mosque_ops",
+      label:
+        currentLocale === "ar"
+          ? "شؤون المساجد"
+          : currentLocale === "ha"
+            ? "Sha'anin Masallatai"
+            : "Opérations Mosquées",
+      items: [
+        { href: "/mosques/maintenance", label: t.sidebar.maintenance, icon: Building2, color: "text-amber-400", bg: "bg-amber-500/15", roles: ["ADMIN", "IMAM", "INSPECTOR"] },
+        { href: "/mosques/security", label: t.sidebar.security, icon: Car, color: "text-blue-400", bg: "bg-blue-500/15", roles: ["ADMIN", "IMAM", "INSPECTOR"] },
+        { href: "/mosques/funerals", label: t.sidebar.funerals, icon: Users, color: "text-purple-400", bg: "bg-purple-500/15", roles: ["ADMIN", "IMAM", "INSPECTOR"] },
+        { href: "/mosques/library", label: t.sidebar.library, icon: Library, color: "text-teal-400", bg: "bg-teal-500/15", roles: ["ADMIN", "IMAM", "SCHOLAR", "INSPECTOR"] },
+      ],
+    },
+    {
+      id: "community",
+      label:
+        currentLocale === "ar"
+          ? "الدعوة والمالية"
+          : currentLocale === "ha"
+            ? "Da'awa da Kuɗi"
+            : "Dawah & Finances",
+      items: [
+        { href: "/scholars/fatwa", label: t.sidebar.scholars, icon: BookOpen, color: "text-amber-400", bg: "bg-amber-500/15", roles: ["ADMIN", "SCHOLAR", "IMAM"] },
+        { href: "/finance/zakat", label: t.sidebar.zakat, icon: Scale, color: "text-emerald-400", bg: "bg-emerald-500/15", roles: ["ADMIN", "ACCOUNTANT"] },
+        { href: "/portal/project", label: t.sidebar.donorPortal, icon: Droplet, color: "text-cyan-400", bg: "bg-cyan-500/15" },
+        { href: "/magazine", label: t.sidebar.magazine, icon: BookMarked, color: "text-rose-400", bg: "bg-rose-500/15" },
+      ],
+    },
+    {
+      id: "governance",
+      label:
+        currentLocale === "ar"
+          ? "الحوكمة والإعدادات"
+          : currentLocale === "ha"
+            ? "Tsari da Saituna"
+            : "Gouvernance",
+      items: [
+        { href: "/access-control", label: t.sidebar.accessControl, icon: KeyRound, color: "text-rose-400", bg: "bg-rose-500/15", roles: ["ADMIN"] },
+        { href: "/settings", label: t.sidebar.settings, icon: Settings, color: "text-cyan-400", bg: "bg-cyan-500/15", roles: ["ADMIN", "IMAM", "INSPECTOR"] },
+      ],
+    },
+  ];
+
+  const q = navSearch.trim().toLowerCase();
+  const visibleGroups = moduleGroups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (m) => canAccess(m.roles) && (!q || m.label.toLowerCase().includes(q))
+      ),
+    }))
+    .filter((g) => g.items.length > 0);
+
+  const moduleLinks = visibleGroups.flatMap((g) => g.items);
+
+  const handleQuickLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    setAuthInfo({ authenticated: false });
+    router.push("/login");
+    router.refresh();
+  };
 
   const activeTitle =
     coreNavItems.find((i) => i.id === activeTab)?.label ||
@@ -172,8 +240,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className="h-16 px-4 border-b border-slate-800/80 flex items-center justify-between gap-2 shrink-0">
           <Link href="/" className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 ring-2 ring-emerald-400/30 shrink-0">
-              <Building2 className="w-5 h-5 text-slate-950 stroke-[2.5]" />
+            <div className="w-10 h-10 rounded-2xl bg-white p-1 flex items-center justify-center shadow-lg shadow-emerald-500/20 ring-2 ring-emerald-400/40 shrink-0 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/icon-192x192.png" alt="Ihya'ous Sounnah" className="w-full h-full object-contain rounded-xl" />
             </div>
             {!sidebarCollapsed && (
               <div className="min-w-0">
@@ -209,57 +278,118 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-          <div className="space-y-1.5">
+        {!sidebarCollapsed && (
+          <div className="px-3 pt-3 shrink-0">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute start-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={navSearch}
+                onChange={(e) => setNavSearch(e.target.value)}
+                placeholder={
+                  currentLocale === "ar"
+                    ? "بحث سريع في الأقسام..."
+                    : currentLocale === "ha"
+                      ? "Nemo sashe..."
+                      : "Accès rapide..."
+                }
+                className="w-full bg-slate-950/80 border border-slate-800/90 rounded-xl ps-8 pe-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/60 transition"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto manara-scroll px-3 py-4 space-y-5">
+          <div className="space-y-1">
             {!sidebarCollapsed && (
               <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 {t.sidebar.coreSections}
               </div>
             )}
-            {coreNavItems.map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => handleCoreClick(tab.id)}
-                  title={tab.label}
-                  className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs transition-all flex items-center gap-3 cursor-pointer ${sidebarCollapsed ? "justify-center" : ""
-                    } ${isActive
-                      ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-950/50"
-                      : "text-slate-400 hover:text-white hover:bg-slate-800/70"
-                    }`}
-                >
-                  <tab.icon className="w-4 h-4 shrink-0" />
-                  {!sidebarCollapsed && <span className="truncate">{tab.label}</span>}
-                </button>
-              );
-            })}
+            {coreNavItems
+              .filter((tab) => !q || tab.label.toLowerCase().includes(q))
+              .map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleCoreClick(tab.id)}
+                    title={tab.label}
+                    className={`group relative w-full py-2 px-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-3 cursor-pointer ${sidebarCollapsed ? "justify-center" : ""
+                      } ${isActive
+                        ? "bg-gradient-to-r from-emerald-600/90 to-teal-600/90 text-white shadow-lg shadow-emerald-950/50"
+                        : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                      }`}
+                  >
+                    <span
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition ${
+                        isActive
+                          ? "bg-white/15 text-white"
+                          : "bg-slate-800/70 text-slate-400 group-hover:text-emerald-400"
+                      }`}
+                    >
+                      <tab.icon className="w-4 h-4" />
+                    </span>
+                    {!sidebarCollapsed && <span className="truncate">{tab.label}</span>}
+                  </button>
+                );
+              })}
           </div>
 
-          <div className="space-y-1.5 pt-3 border-t border-slate-800/80">
-            {!sidebarCollapsed && (
-              <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
-                <span>{t.sidebar.specializedModules}</span>
-                <span className="text-emerald-400">{moduleLinks.length}</span>
-              </div>
-            )}
-            {moduleLinks.map((mod) => {
-              const isActive = pathname.startsWith(mod.href);
+          <div className="space-y-3 pt-3 border-t border-slate-800/80">
+            {visibleGroups.map((group) => {
+              const hasActiveChild = group.items.some((m) => pathname.startsWith(m.href));
+              const isGroupCollapsed = Boolean(collapsedGroups[group.id]) && !q && !hasActiveChild;
+
               return (
-                <Link
-                  key={mod.href}
-                  href={mod.href}
-                  title={mod.label}
-                  onClick={() => setMobileSidebarOpen(false)}
-                  className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs transition flex items-center gap-3 ${sidebarCollapsed ? "justify-center" : ""
-                    } ${isActive
-                      ? "bg-slate-800 text-white border border-emerald-500/40 shadow-sm"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/70"
-                    }`}
-                >
-                  <mod.icon className={`w-4 h-4 shrink-0 ${mod.color}`} />
-                  {!sidebarCollapsed && <span className="truncate">{mod.label}</span>}
-                </Link>
+                <div key={group.id} className="space-y-1">
+                  {!sidebarCollapsed && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCollapsedGroups((prev) => ({ ...prev, [group.id]: !prev[group.id] }))
+                      }
+                      className="w-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 flex items-center justify-between cursor-pointer transition"
+                    >
+                      <span>{group.label}</span>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform ${
+                          isGroupCollapsed ? "-rotate-90" : ""
+                        }`}
+                      />
+                    </button>
+                  )}
+
+                  {!isGroupCollapsed &&
+                    group.items.map((mod) => {
+                      const isActive = pathname.startsWith(mod.href);
+                      return (
+                        <Link
+                          key={mod.href}
+                          href={mod.href}
+                          title={mod.label}
+                          onClick={() => setMobileSidebarOpen(false)}
+                          className={`group relative w-full py-2 px-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-3 ${sidebarCollapsed ? "justify-center" : ""
+                            } ${isActive
+                              ? "bg-slate-800/90 text-white border border-emerald-500/40 shadow-md shadow-emerald-950/30"
+                              : "text-slate-300 hover:text-white hover:bg-slate-800/50"
+                            }`}
+                        >
+                          {isActive && !sidebarCollapsed && (
+                            <span className="absolute start-0 top-2 bottom-2 w-1 rounded-full bg-emerald-400" />
+                          )}
+                          <span
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition ${
+                              isActive ? mod.bg : "bg-slate-800/60 group-hover:bg-slate-800"
+                            }`}
+                          >
+                            <mod.icon className={`w-4 h-4 ${mod.color}`} />
+                          </span>
+                          {!sidebarCollapsed && <span className="truncate">{mod.label}</span>}
+                        </Link>
+                      );
+                    })}
+                </div>
               );
             })}
           </div>
@@ -267,12 +397,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="p-3 border-t border-slate-800/80 shrink-0 space-y-2">
           {authInfo.authenticated && !sidebarCollapsed && (
-            <div className="px-3 py-2 rounded-xl bg-slate-950/70 border border-slate-800/80 text-[11px]">
-              <div className="font-bold text-white truncate">{authInfo.email}</div>
-              <div className="text-emerald-400 font-semibold truncate">
-                {authInfo.role}
-                {authInfo.village ? ` • ${authInfo.village}` : ""}
+            <div className="px-3 py-2.5 rounded-2xl bg-slate-950/80 border border-slate-800/90 flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 uppercase">
+                {(authInfo.email || "U").slice(0, 1)}
               </div>
+              <div className="flex-1 min-w-0 text-[11px]">
+                <div className="font-bold text-white truncate">{authInfo.email}</div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span
+                    className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${
+                      authInfo.role === "ADMIN"
+                        ? "bg-rose-500/20 text-rose-300"
+                        : "bg-emerald-500/15 text-emerald-300"
+                    }`}
+                  >
+                    {authInfo.role}
+                  </span>
+                  {authInfo.village && (
+                    <span className="text-slate-400 truncate">{authInfo.village}</span>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleQuickLogout}
+                title={currentLocale === "ar" ? "تسجيل الخروج" : currentLocale === "ha" ? "Fita" : "Déconnexion"}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
           <Link
