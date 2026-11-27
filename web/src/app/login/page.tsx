@@ -92,6 +92,7 @@ const LOGIN_DICT: Record<
     strengthMedium: "متوسطة",
     strengthStrong: "قوية",
     roles: [
+      { value: "ADMIN", label: "مشرف عام (ADMIN)" },
       { value: "IMAM", label: "إمام / مأذون شرعي" },
       { value: "SCHOLAR", label: "عالم / مفتي" },
       { value: "ACCOUNTANT", label: "أمين صندوق / محاسب زكاة" },
@@ -130,6 +131,7 @@ const LOGIN_DICT: Record<
     strengthMedium: "Moyenne",
     strengthStrong: "Forte",
     roles: [
+      { value: "ADMIN", label: "Administrateur (ADMIN)" },
       { value: "IMAM", label: "Imam / Officier Nikah" },
       { value: "SCHOLAR", label: "Ouléma / Mufti" },
       { value: "ACCOUNTANT", label: "Trésorier / Comptable Zakat" },
@@ -168,6 +170,7 @@ const LOGIN_DICT: Record<
     strengthMedium: "Matsakaici",
     strengthStrong: "Mai karfi",
     roles: [
+      { value: "ADMIN", label: "Babban Shugaba (ADMIN)" },
       { value: "IMAM", label: "Liman / Mai daurin aure" },
       { value: "SCHOLAR", label: "Malami / Mufti" },
       { value: "ACCOUNTANT", label: "Ma'ajin Zakka" },
@@ -185,6 +188,13 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState("IMAM");
+  const [village, setVillage] = useState("");
+  const [adminCode, setAdminCode] = useState("");
+  const [currentUser, setCurrentUser] = useState<{
+    email: string;
+    role: string;
+    village?: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [authHealth, setAuthHealth] = useState<"checking" | "online" | "offline">("checking");
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
@@ -197,18 +207,39 @@ export default function LoginPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!active) return;
-        const urlOk =
-          data?.supabaseUrl &&
-          !String(data.supabaseUrl).includes("your-project");
-        setAuthHealth(urlOk && data?.status === "CONNECTED" ? "online" : "offline");
+        setAuthHealth(
+          data?.status === "CONNECTED" && data?.tableCheck === "TABLE_READY"
+            ? "online"
+            : "offline"
+        );
       })
       .catch(() => {
         if (active) setAuthHealth("offline");
       });
+
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((me) => {
+        if (active && me?.authenticated) {
+          setCurrentUser({
+            email: me.email,
+            role: me.role,
+            village: me.village,
+          });
+        }
+      })
+      .catch(() => {});
+
     return () => {
       active = false;
     };
   }, []);
+
+  const handleSignOut = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    setCurrentUser(null);
+    router.refresh();
+  };
 
   const passwordStrength =
     password.length === 0
@@ -255,6 +286,8 @@ export default function LoginPage() {
             password,
             fullName: fullName.trim() || "Ihya'ous Sounnah Staff",
             role,
+            village: village.trim() || undefined,
+            adminCode: adminCode.trim() || undefined,
           }),
         });
         const data = await res.json();
@@ -442,46 +475,104 @@ export default function LoginPage() {
             </button>
           </div>
 
+          {currentUser && (
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs">
+              <div>
+                <div className="font-bold text-emerald-300">{currentUser.email}</div>
+                <div className="text-[11px] text-slate-400">
+                  {currentUser.role}
+                  {currentUser.village ? ` • ${currentUser.village}` : ""}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-rose-300 font-bold cursor-pointer"
+              >
+                {locale === "ar" ? "تسجيل الخروج" : locale === "ha" ? "Fita" : "Déconnexion"}
+              </button>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "signup" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                    {t.fullNameLabel}
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-slate-500 absolute start-3.5 top-3" />
-                    <input
-                      type="text"
-                      required
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder={t.fullNamePlaceholder}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl ps-10 pe-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
-                    />
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      {t.fullNameLabel}
+                    </label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-slate-500 absolute start-3.5 top-3" />
+                      <input
+                        type="text"
+                        required
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder={t.fullNamePlaceholder}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl ps-10 pe-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      {t.roleLabel}
+                    </label>
+                    <div className="relative">
+                      <Briefcase className="w-4 h-4 text-slate-500 absolute start-3.5 top-3" />
+                      <select
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl ps-10 pe-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
+                      >
+                        {t.roles.map((r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                    {t.roleLabel}
-                  </label>
-                  <div className="relative">
-                    <Briefcase className="w-4 h-4 text-slate-500 absolute start-3.5 top-3" />
-                    <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl ps-10 pe-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
-                    >
-                      {t.roles.map((r) => (
-                        <option key={r.value} value={r.value}>
-                          {r.label}
-                        </option>
-                      ))}
-                    </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                      {locale === "ar"
+                        ? "القرية / الشعبة"
+                        : locale === "ha"
+                          ? "Ƙauye / Sashe"
+                          : "Village / Section"}
+                    </label>
+                    <input
+                      type="text"
+                      value={village}
+                      onChange={(e) => setVillage(e.target.value)}
+                      placeholder="madarounfa Siège..."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
+                    />
                   </div>
+                  {role === "ADMIN" && currentUser?.role !== "ADMIN" && (
+                    <div>
+                      <label className="block text-xs font-bold text-rose-300 mb-1.5">
+                        {locale === "ar"
+                          ? "رمز تفعيل المشرف (ADMIN)"
+                          : locale === "ha"
+                            ? "Lambar Sirrin ADMIN"
+                            : "Code d'activation ADMIN"}
+                      </label>
+                      <input
+                        type="password"
+                        value={adminCode}
+                        onChange={(e) => setAdminCode(e.target.value)}
+                        placeholder="ADMIN_SETUP_CODE"
+                        className="w-full bg-slate-950 border border-rose-500/40 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-rose-500 transition"
+                      />
+                    </div>
+                  )}
                 </div>
-              </div>
+              </>
             )}
 
             <div>

@@ -1,10 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/infrastructure/supabase/server";
+import {
+  getAuthContext,
+  resolveOrganizationId,
+  ManaraRole,
+} from "@/infrastructure/supabase/auth";
+
+const VALID_ROLES: ManaraRole[] = [
+  "ADMIN",
+  "IMAM",
+  "SCHOLAR",
+  "ACCOUNTANT",
+  "INSPECTOR",
+  "VIEWER",
+];
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, fullName } = await req.json();
+    const { email, password, fullName, role, village, adminCode } =
+      await req.json();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -16,8 +31,35 @@ export async function POST(req: NextRequest) {
     const cleanEmail = String(email).trim();
     const cleanPassword = String(password);
     const cleanName = String(fullName || "").trim() || "Ihya'ous Sounnah Member";
-    // التسجيل العام يُنشئ دائماً بحساب VIEWER؛ ترقية الصلاحيات تتم حصراً عبر الإدارة (/api/admin/users)
-    const safeRole = "VIEWER";
+    const cleanVillage = String(village || "").trim();
+    const requestedUpper = String(role || "VIEWER").toUpperCase() as ManaraRole;
+    const requestedRole: ManaraRole = VALID_ROLES.includes(requestedUpper)
+      ? requestedUpper
+      : "VIEWER";
+
+    const currentAuth = await getAuthContext(req);
+    const isCurrentAdmin = currentAuth?.role === "ADMIN";
+    const setupCode = process.env.ADMIN_SETUP_CODE;
+    const hasValidAdminCode =
+      Boolean(setupCode) && String(adminCode || "").trim() === setupCode;
+
+    if (requestedRole === "ADMIN" && !isCurrentAdmin && !hasValidAdminCode) {
+      return NextResponse.json(
+        {
+          error:
+            "إنشاء حساب ADMIN يتطلب تسجيل الدخول بحساب مشرف حالي أو إدخال رمز التفعيل السري (ADMIN_SETUP_CODE).",
+        },
+        { status: 403 }
+      );
+    }
+
+    // المشرف الحالي أو رمز التفعيل يمنح الدور المطلوب؛ التسجيل العام يأخذ VIEWER حتى يعتمده المشرف
+    const safeRole: ManaraRole =
+      isCurrentAdmin || (requestedRole === "ADMIN" && hasValidAdminCode)
+        ? requestedRole
+        : "VIEWER";
+
+    const orgId = currentAuth ? await resolveOrganizationId(currentAuth) : null;
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,9 +77,13 @@ export async function POST(req: NextRequest) {
         user_metadata: {
           full_name: cleanName,
           role: safeRole,
+          requested_role: requestedRole,
+          ...(cleanVillage ? { village: cleanVillage } : {}),
         },
         app_metadata: {
           role: safeRole,
+          ...(cleanVillage ? { village: cleanVillage } : {}),
+          ...(orgId ? { organization_id: orgId } : {}),
         },
       });
 
@@ -48,6 +94,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           status: "SUCCESS",
+          assignedRole: safeRole,
           user: {
             id: data.user?.id,
             email: data.user?.email,
@@ -65,6 +112,8 @@ export async function POST(req: NextRequest) {
         data: {
           full_name: cleanName,
           role: safeRole,
+          requested_role: requestedRole,
+          ...(cleanVillage ? { village: cleanVillage } : {}),
         },
       },
     });
@@ -76,6 +125,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         status: "SUCCESS",
+        assignedRole: safeRole,
         user: {
           id: data.user?.id,
           email: data.user?.email,
