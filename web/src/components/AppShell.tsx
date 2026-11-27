@@ -28,7 +28,11 @@ import {
 } from "lucide-react";
 import { LOCALES } from "@/lib/i18n";
 import { useLocale } from "@/lib/locale-context";
-import { useIdentitySettings } from "@/lib/identity-settings";
+import {
+  useIdentitySettings,
+  setActiveIdentityVillage,
+  HQ_IDENTITY_KEY,
+} from "@/lib/identity-settings";
 
 const STANDALONE_PREFIXES = ["/login", "/verify/"];
 
@@ -53,7 +57,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (active && data) setAuthInfo(data);
+        if (active && data) {
+          setAuthInfo(data);
+          if (data.authenticated && data.role !== "ADMIN" && data.village) {
+            setActiveIdentityVillage(data.village);
+          } else if (data.authenticated && data.role === "ADMIN") {
+            // Admin retains their selected village or HQ
+          } else if (!data.authenticated) {
+            setActiveIdentityVillage(HQ_IDENTITY_KEY);
+          }
+        }
       })
       .catch(() => {});
     return () => {
@@ -115,7 +128,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/bilan-2026", label: t.sidebar.bilan2026, icon: ClipboardList, color: "text-emerald-400" },
     { href: "/commissions", label: t.sidebar.commissions2026, icon: Award, color: "text-amber-400", roles: ["ADMIN", "IMAM", "SCHOLAR", "INSPECTOR"] },
     { href: "/access-control", label: t.sidebar.accessControl, icon: KeyRound, color: "text-rose-400", roles: ["ADMIN"] },
-    { href: "/settings", label: t.sidebar.settings, icon: Settings, color: "text-cyan-400", roles: ["ADMIN"] },
+    { href: "/settings", label: t.sidebar.settings, icon: Settings, color: "text-cyan-400", roles: ["ADMIN", "IMAM", "INSPECTOR"] },
   ].filter((mod) => canAccess(mod.roles));
 
   const activeTitle =

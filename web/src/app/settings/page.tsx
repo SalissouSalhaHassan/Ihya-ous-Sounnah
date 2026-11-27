@@ -18,15 +18,21 @@ import {
   Building2,
   UserCheck,
   ShieldCheck,
+  Plus,
 } from "lucide-react";
 import { useLocale } from "@/lib/locale-context";
 import { Locale } from "@/lib/i18n";
 import {
   IdentitySettings,
   DEFAULT_IDENTITY_SETTINGS,
+  HQ_IDENTITY_KEY,
+  HQ_IDENTITY_LABEL,
   loadIdentitySettings,
   saveIdentitySettings,
   resetIdentitySettings,
+  listIdentityVillages,
+  setActiveIdentityVillage,
+  deleteIdentityVillage,
 } from "@/lib/identity-settings";
 import {
   PrintLetterhead,
@@ -161,7 +167,7 @@ const DICT: Record<
   },
   ha: {
     badge: "Shaidar Gidauniya da Saitunan Aiki",
-    title: "Paramètres & Identité",
+    title: "Saituna da Shaidar Hukuma",
     subtitle:
       "Saita Tambarin Hukuma, Hoton Hatimi, Adireshi da Bayanan Doka da ke fitowa a kan dukkan takardu.",
     saveBtn: "Ajiye Saituna",
@@ -208,6 +214,12 @@ export default function SettingsIdentityPage() {
 
   const [form, setForm] = useState<IdentitySettings>(DEFAULT_IDENTITY_SETTINGS);
   const [savedNotice, setSavedNotice] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [assignedVillage, setAssignedVillage] = useState<string | null>(null);
+  const [villages, setVillages] = useState<string[]>([HQ_IDENTITY_KEY]);
+  const [selectedVillage, setSelectedVillage] = useState<string>(HQ_IDENTITY_KEY);
+  const [newVillageName, setNewVillageName] = useState("");
+  const [isAddingVillage, setIsAddingVillage] = useState(false);
   const [printOrientation, setPrintOrientation] = useState<
     "portrait" | "landscape"
   >("portrait");
@@ -218,10 +230,71 @@ export default function SettingsIdentityPage() {
   };
 
   useEffect(() => {
-    queueMicrotask(() => {
-      setForm(loadIdentitySettings());
-    });
+    let active = true;
+    const init = async () => {
+      let admin = false;
+      let village: string | null = null;
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const me = await res.json();
+          if (me?.authenticated) {
+            admin = me.role === "ADMIN";
+            village = !admin && me.village ? String(me.village).trim() : null;
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      if (!active) return;
+      setIsAdmin(admin);
+      setAssignedVillage(village);
+
+      if (village) {
+        setVillages([village]);
+        setSelectedVillage(village);
+        setActiveIdentityVillage(village);
+        setForm(loadIdentitySettings(village));
+      } else {
+        const list = listIdentityVillages();
+        setVillages(list);
+        const current = list.includes(HQ_IDENTITY_KEY) ? HQ_IDENTITY_KEY : list[0];
+        setSelectedVillage(current);
+        setActiveIdentityVillage(current);
+        setForm(loadIdentitySettings(current));
+      }
+    };
+    void init();
+    return () => {
+      active = false;
+    };
   }, []);
+
+  const handleSelectVillage = (key: string) => {
+    setSelectedVillage(key);
+    setActiveIdentityVillage(key);
+    setForm(loadIdentitySettings(key));
+  };
+
+  const handleCreateVillage = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = newVillageName.trim();
+    if (!clean) return;
+    const nextSettings = loadIdentitySettings(clean);
+    saveIdentitySettings(nextSettings, clean);
+    setVillages(listIdentityVillages());
+    handleSelectVillage(clean);
+    setNewVillageName("");
+    setIsAddingVillage(false);
+  };
+
+  const handleRemoveVillage = (key: string) => {
+    deleteIdentityVillage(key);
+    const list = listIdentityVillages();
+    setVillages(list);
+    handleSelectVillage(HQ_IDENTITY_KEY);
+  };
 
   const handleImageUpload = (
     field: "letterheadUrl" | "logoUrl" | "stampUrl",
@@ -241,13 +314,14 @@ export default function SettingsIdentityPage() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    saveIdentitySettings(form);
+    saveIdentitySettings(form, selectedVillage);
+    setVillages(assignedVillage ? [assignedVillage] : listIdentityVillages());
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 3000);
   };
 
   const handleReset = () => {
-    const defaults = resetIdentitySettings();
+    const defaults = resetIdentitySettings(selectedVillage);
     setForm(defaults);
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 3000);
@@ -312,6 +386,90 @@ export default function SettingsIdentityPage() {
               <span>{dict.saveBtn}</span>
             </button>
           </div>
+        </div>
+
+        {/* Multi-Village Identity Switcher */}
+        <div className="print:hidden bg-slate-900/70 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center gap-2.5">
+          <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+            {currentLocale === "ar"
+              ? "الهوية حسب القرية / الشعبة:"
+              : currentLocale === "ha"
+                ? "Shaidar Ƙauye / Sashe:"
+                : "Identité par Village / Section :"}
+          </span>
+          {villages.map((vKey) => {
+            const active = selectedVillage === vKey;
+            const label = vKey === HQ_IDENTITY_KEY ? HQ_IDENTITY_LABEL : vKey;
+            return (
+              <div
+                key={vKey}
+                className={`inline-flex items-center gap-1 rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+                  active
+                    ? "bg-emerald-600 text-white border-emerald-500 shadow"
+                    : "bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-600"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleSelectVillage(vKey)}
+                  className="cursor-pointer"
+                >
+                  {label}
+                </button>
+                {isAdmin && vKey !== HQ_IDENTITY_KEY && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveVillage(vKey)}
+                    className="ms-1 text-slate-300 hover:text-rose-300 cursor-pointer"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {isAdmin && !isAddingVillage && (
+            <button
+              type="button"
+              onClick={() => setIsAddingVillage(true)}
+              className="px-3 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-dashed border-emerald-500/40 text-emerald-400 text-xs font-bold flex items-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>
+                {currentLocale === "ar"
+                  ? "إضافة قرية"
+                  : currentLocale === "ha"
+                    ? "Ƙara ƙauye"
+                    : "Ajouter village"}
+              </span>
+            </button>
+          )}
+          {isAdmin && isAddingVillage && (
+            <form onSubmit={handleCreateVillage} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newVillageName}
+                onChange={(e) => setNewVillageName(e.target.value)}
+                placeholder="madarounfa Siège..."
+                className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                type="submit"
+                className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"
+              >
+                OK
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddingVillage(false)}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold cursor-pointer"
+              >
+                ×
+              </button>
+            </form>
+          )}
         </div>
 
         {savedNotice && (
