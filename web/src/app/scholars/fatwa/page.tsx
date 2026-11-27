@@ -32,6 +32,7 @@ import { useLocale } from "@/lib/locale-context";
 import { FATWA_DICT } from "@/lib/module-i18n";
 
 interface FatwaItem {
+  id?: string;
   refCode: string;
   category: string;
   question: string;
@@ -40,6 +41,7 @@ interface FatwaItem {
   scholarName: string;
   date: string;
   isPublic: boolean;
+  status?: "PENDING" | "ANSWERED";
 }
 
 interface SermonItem {
@@ -167,7 +169,15 @@ export default function ScholarsFatwaPage() {
   const [sermons, setSermons] = useState<SermonItem[]>(INITIAL_SERMONS);
   const [reconciliations, setReconciliations] = useState<ReconciliationRecord[]>(INITIAL_RECONCILIATIONS);
 
-  // استرجاع البيانات من localStorage
+  // استرجاع البيانات من localStorage وربط /api/fatwa و /api/auth/me
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ANSWERED" | "PENDING">("ALL");
+  const [canAnswer, setCanAnswer] = useState(false);
+  const [answeringFatwa, setAnsweringFatwa] = useState<FatwaItem | null>(null);
+  const [answerText, setAnswerText] = useState("");
+  const [evidenceText, setEvidenceText] = useState("");
+  const [isSavingAnswer, setIsSavingAnswer] = useState(false);
+
   useEffect(() => {
     const id = setTimeout(() => {
       try {
@@ -181,6 +191,53 @@ export default function ScholarsFatwaPage() {
         console.warn("Storage load error", e);
       }
     }, 0);
+
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((me) => {
+        if (me?.authenticated && (me.role === "ADMIN" || me.role === "SCHOLAR")) {
+          setCanAnswer(true);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/fatwa")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!Array.isArray(data?.fatwas) || data.fatwas.length === 0) return;
+        interface DbFatwa {
+          id: string;
+          ref_code: string;
+          category: string;
+          question: string;
+          answer: string | null;
+          evidence: string | null;
+          scholar_name: string | null;
+          created_at: string | null;
+          is_public: boolean | null;
+          status: string | null;
+        }
+        const liveItems: FatwaItem[] = (data.fatwas as DbFatwa[]).map((row) => ({
+          id: row.id,
+          refCode: row.ref_code,
+          category: row.category || "شؤون عامة",
+          question: row.question,
+          answer:
+            row.answer ||
+            "قيد المراجعة والدراسة من قبل فضيلة المفتي المناوب بمجلس العلماء...",
+          evidence: row.evidence || "سيتم إرفاق الأدلة الفقهية فور اعتماد الفتوى.",
+          scholarName: row.scholar_name || "هيئة الفتوى والتدقيق الشرعي",
+          date: row.created_at ? row.created_at.split("T")[0] : "اليوم",
+          isPublic: row.is_public !== false,
+          status: row.status === "ANSWERED" ? "ANSWERED" : "PENDING",
+        }));
+        setFatwas((prev) => {
+          const seen = new Set(liveItems.map((i) => i.refCode));
+          return [...liveItems, ...prev.filter((p) => !seen.has(p.refCode))];
+        });
+      })
+      .catch(() => {});
+
     return () => clearTimeout(id);
   }, []);
 
@@ -269,7 +326,8 @@ export default function ScholarsFatwaPage() {
       evidence: "سيتم إرفاق الأدلة الفقهية فور اعتماد الفتوى.",
       scholarName: "هيئة الفتوى والتدقيق الشرعي",
       date: "اليوم",
-      isPublic: true
+      isPublic: true,
+      status: "PENDING",
     };
 
     saveFatwas([newFatwa, ...fatwas]);
@@ -281,6 +339,41 @@ export default function ScholarsFatwaPage() {
       setAskerName("");
       setAskerPhone("");
     }, 2000);
+  };
+
+  const handleSaveAnswer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!answeringFatwa || !answerText.trim()) return;
+    setIsSavingAnswer(true);
+    try {
+      if (answeringFatwa.id) {
+        await fetch("/api/fatwa", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: answeringFatwa.id,
+            answer: answerText.trim(),
+            evidence: evidenceText.trim() || undefined,
+          }),
+        });
+      }
+      const updated = fatwas.map((f) =>
+        f.refCode === answeringFatwa.refCode
+          ? {
+              ...f,
+              answer: answerText.trim(),
+              evidence: evidenceText.trim() || f.evidence,
+              status: "ANSWERED" as const,
+            }
+          : f
+      );
+      saveFatwas(updated);
+      setAnsweringFatwa(null);
+      setAnswerText("");
+      setEvidenceText("");
+    } finally {
+      setIsSavingAnswer(false);
+    }
   };
 
   // تسجيل محضر صلح جديد
@@ -366,9 +459,10 @@ export default function ScholarsFatwaPage() {
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() =>
-                setActiveTab(tab.id as "fatwa" | "sermons" | "reconciliation")
-              }
+              onClick={() => {
+                setActiveTab(tab.id as "fatwa" | "sermons" | "reconciliation");
+                setSelectedCategory("ALL");
+              }}
               className={`flex-1 py-3 px-3 sm:px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 activeTab === tab.id
                   ? "bg-teal-600 text-white shadow-md shadow-teal-900/40"
@@ -385,91 +479,287 @@ export default function ScholarsFatwaPage() {
           ))}
         </div>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="w-4 h-4 absolute top-3.5 right-4 text-slate-500" />
-          <input
-            type="text"
-            placeholder={dict.searchPlaceholder}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl pr-11 pl-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-500"
-          />
+        {/* Search Bar + Smart Sections / Categories */}
+        <div className="space-y-3 bg-slate-900/50 border border-slate-800/80 rounded-2xl p-3.5">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute top-3.5 start-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder={dict.searchPlaceholder}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl ps-11 pe-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-500"
+            />
+          </div>
+
+          {activeTab === "fatwa" && (() => {
+            const uiLabels = {
+              ar: { all: "كل الأقسام", answered: "معتمدة", pending: "بانتظار الإجابة" },
+              fr: { all: "Toutes catégories", answered: "Validées", pending: "En attente" },
+              ha: { all: "Dukkan sassan", answered: "An amsa", pending: "Ana jira" },
+            }[currentLocale];
+            const categories = Array.from(new Set(fatwas.map((f) => f.category)));
+            return (
+              <div className="flex flex-wrap items-center gap-2">
+                {(["ALL", "ANSWERED", "PENDING"] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setStatusFilter(st)}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
+                      statusFilter === st
+                        ? "bg-emerald-600 text-white border-emerald-500"
+                        : "bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-600"
+                    }`}
+                  >
+                    {st === "ALL" ? uiLabels.all : st === "ANSWERED" ? uiLabels.answered : uiLabels.pending}
+                  </button>
+                ))}
+                <span className="text-slate-700">|</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("ALL")}
+                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
+                    selectedCategory === "ALL"
+                      ? "bg-teal-600 text-white border-teal-500"
+                      : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
+                  }`}
+                >
+                  {uiLabels.all} ({fatwas.length})
+                </button>
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
+                      selectedCategory === cat
+                        ? "bg-teal-600 text-white border-teal-500"
+                        : "bg-slate-950 text-slate-300 border-slate-800 hover:border-teal-500/40"
+                    }`}
+                  >
+                    {cat} ({fatwas.filter((f) => f.category === cat).length})
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         {/* ============================================================== */}
         {/* Tab 1: Fatwa Ledger */}
         {/* ============================================================== */}
-        {activeTab === "fatwa" && (
-          <div className="space-y-4">
-            {fatwas
-              .filter(f => 
-                f.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                f.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                f.refCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                f.answer.toLowerCase().includes(searchQuery.toLowerCase())
-              )
-              .map((fatwa) => (
-              <div 
-                key={fatwa.refCode}
-                className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4 hover:border-teal-500/40 transition shadow-lg"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-teal-400 bg-teal-950/60 px-2.5 py-1 rounded-lg border border-teal-800/40">
-                      {fatwa.refCode}
-                    </span>
-                    <span className="text-xs font-bold text-slate-300">
-                      {fatwa.category}
-                    </span>
-                  </div>
-                  <span className="text-xs text-slate-500 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" /> {fatwa.date}
-                  </span>
-                </div>
+        {activeTab === "fatwa" && (() => {
+          const cardText = {
+            ar: {
+              q: "سؤال:",
+              a: "الجواب والفتوى المعتمدة:",
+              ev: "التأصيل والدليل:",
+              scholar: "المفتي المجيب:",
+              share: "مشاركة الفتوى",
+              copied: "تم النسخ بنجاح",
+              answerBtn: "إجابة واعتماد",
+              pendingBadge: "قيد المراجعة",
+              answeredBadge: "فتوى معتمدة",
+            },
+            fr: {
+              q: "Question :",
+              a: "Réponse & Fatwa validée :",
+              ev: "Preuve & Argumentaire :",
+              scholar: "Mufti / Savant :",
+              share: "Partager",
+              copied: "Copié !",
+              answerBtn: "Répondre & Valider",
+              pendingBadge: "En attente",
+              answeredBadge: "Validée",
+            },
+            ha: {
+              q: "Tambaya:",
+              a: "Amsa da Fatawa:",
+              ev: "Dalili daga Alƙur'ani da Sunnah:",
+              scholar: "Malami mai amsa:",
+              share: "Raba Fatawa",
+              copied: "An kwafe!",
+              answerBtn: "Amsa Fatawa",
+              pendingBadge: "Ana jira",
+              answeredBadge: "An tabbatar",
+            },
+          }[currentLocale];
 
-                <div className="space-y-2">
-                  <div className="text-sm font-bold text-white flex items-start gap-2">
-                    <span className="text-teal-400 font-black shrink-0">سؤال:</span>
-                    <p className="leading-relaxed">{fatwa.question}</p>
-                  </div>
+          return (
+            <div className="space-y-4">
+              {fatwas
+                .filter((f) => {
+                  const isAnswered = f.status !== "PENDING" && !f.answer.includes("قيد المراجعة");
+                  if (statusFilter === "ANSWERED" && !isAnswered) return false;
+                  if (statusFilter === "PENDING" && isAnswered) return false;
+                  if (selectedCategory !== "ALL" && f.category !== selectedCategory) return false;
+                  const q = searchQuery.toLowerCase();
+                  return (
+                    !q ||
+                    f.question.toLowerCase().includes(q) ||
+                    f.category.toLowerCase().includes(q) ||
+                    f.refCode.toLowerCase().includes(q) ||
+                    f.answer.toLowerCase().includes(q)
+                  );
+                })
+                .map((fatwa) => {
+                  const isPending =
+                    fatwa.status === "PENDING" || fatwa.answer.includes("قيد المراجعة");
+                  return (
+                    <div
+                      key={fatwa.refCode}
+                      className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4 hover:border-teal-500/40 transition shadow-lg"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-teal-400 bg-teal-950/60 px-2.5 py-1 rounded-lg border border-teal-800/40">
+                            {fatwa.refCode}
+                          </span>
+                          <span className="text-xs font-bold text-slate-300 bg-slate-800/70 px-2.5 py-1 rounded-lg">
+                            {fatwa.category}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              isPending
+                                ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                            }`}
+                          >
+                            {isPending ? cardText.pendingBadge : cardText.answeredBadge}
+                          </span>
+                        </div>
+                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" /> {fatwa.date}
+                        </span>
+                      </div>
 
-                  <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-2 text-xs">
-                    <span className="text-emerald-400 font-bold block">الجواب والفتوى المعتمدة:</span>
-                    <p className="text-slate-300 leading-relaxed">{fatwa.answer}</p>
-                    
-                    <div className="pt-2 border-t border-slate-800/80 text-slate-400">
-                      <strong className="text-slate-300">التأصيل والدليل: </strong>
-                      {fatwa.evidence}
+                      <div className="space-y-2">
+                        <div className="text-sm font-bold text-white flex items-start gap-2">
+                          <span className="text-teal-400 font-black shrink-0">{cardText.q}</span>
+                          <p className="leading-relaxed">{fatwa.question}</p>
+                        </div>
+
+                        <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-2 text-xs">
+                          <span className="text-emerald-400 font-bold block">{cardText.a}</span>
+                          <p className="text-slate-300 leading-relaxed">{fatwa.answer}</p>
+
+                          <div className="pt-2 border-t border-slate-800/80 text-slate-400">
+                            <strong className="text-slate-300">{cardText.ev} </strong>
+                            {fatwa.evidence}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs text-slate-400">
+                        <span className="flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-teal-400" />
+                          {cardText.scholar} <strong className="text-white">{fatwa.scholarName}</strong>
+                        </span>
+
+                        <div className="flex items-center gap-3">
+                          {canAnswer && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAnsweringFatwa(fatwa);
+                                setAnswerText(isPending ? "" : fatwa.answer);
+                                setEvidenceText(isPending ? "" : fatwa.evidence);
+                              }}
+                              className="px-3 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold cursor-pointer transition"
+                            >
+                              {cardText.answerBtn}
+                            </button>
+                          )}
+                          <button
+                            onClick={() =>
+                              handleCopyText(
+                                `[${fatwa.refCode}]\n${cardText.q} ${fatwa.question}\n${cardText.a} ${fatwa.answer}\n${cardText.scholar} ${fatwa.scholarName}`,
+                                fatwa.refCode
+                              )
+                            }
+                            className="text-teal-400 hover:text-teal-300 font-bold flex items-center gap-1 cursor-pointer transition"
+                          >
+                            {copiedRef === fatwa.refCode ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <span className="text-emerald-400">{cardText.copied}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Share2 className="w-3.5 h-3.5" />
+                                <span>{cardText.share}</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })}
+            </div>
+          );
+        })()}
 
-                <div className="flex items-center justify-between pt-1 text-xs text-slate-400">
-                  <span className="flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-teal-400" />
-                    المفتي المجيب: <strong className="text-white">{fatwa.scholarName}</strong>
-                  </span>
-                  
-                  <button 
-                    onClick={() => handleCopyText(`[فتوى رسمية من مجلس العلماء - ${fatwa.refCode}]\nالسؤال: ${fatwa.question}\nالجواب: ${fatwa.answer}\nالمجيب: ${fatwa.scholarName}`, fatwa.refCode)}
-                    className="text-teal-400 hover:text-teal-300 font-bold flex items-center gap-1 cursor-pointer transition"
-                  >
-                    {copiedRef === fatwa.refCode ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">تم النسخ بنجاح</span>
-                      </>
-                    ) : (
-                      <>
-                        <Share2 className="w-3.5 h-3.5" />
-                        <span>مشاركة الفتوى</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+        {answeringFatwa && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <form
+              onSubmit={handleSaveAnswer}
+              className="bg-slate-900 border border-teal-500/40 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <span className="font-mono text-xs font-bold text-teal-400">
+                  {answeringFatwa.refCode}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAnsweringFatwa(null)}
+                  className="text-slate-400 hover:text-white cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            ))}
+              <p className="text-xs font-bold text-white bg-slate-950 p-3 rounded-xl border border-slate-800">
+                {answeringFatwa.question}
+              </p>
+              <textarea
+                required
+                rows={4}
+                value={answerText}
+                onChange={(e) => setAnswerText(e.target.value)}
+                placeholder="الجواب والفتوى المعتمدة..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-teal-500"
+              />
+              <input
+                type="text"
+                value={evidenceText}
+                onChange={(e) => setEvidenceText(e.target.value)}
+                placeholder="التأصيل والدليل الشرعي..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-teal-500"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAnsweringFatwa(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold cursor-pointer"
+                >
+                  {currentLocale === "ar" ? "إلغاء" : currentLocale === "ha" ? "Fasa" : "Annuler"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingAnswer}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
+                >
+                  {isSavingAnswer
+                    ? "..."
+                    : currentLocale === "ar"
+                      ? "اعتماد الفتوى"
+                      : currentLocale === "ha"
+                        ? "Tabbatar"
+                        : "Valider"}
+                </button>
+              </div>
+            </form>
           </div>
         )}
 
